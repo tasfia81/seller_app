@@ -3,9 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../core/constants/app_config.dart';
 import 'router/app_router.dart';
-import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 
 class SellerApp extends ConsumerWidget {
@@ -31,18 +29,11 @@ class SellerApp extends ConsumerWidget {
         builder: (context, child) {
           // Respect system text scaling, but cap it so layouts stay usable.
           final media = MediaQuery.of(context);
-          final scaled = MediaQuery(
+          return MediaQuery(
             data: media.copyWith(
               textScaler: media.textScaler.clamp(maxScaleFactor: 1.3),
             ),
             child: child ?? const SizedBox.shrink(),
-          );
-          if (!AppConfig.demoMode) return scaled;
-          return Banner(
-            message: 'ডেমো',
-            location: BannerLocation.topEnd,
-            color: AppColors.warning,
-            child: scaled,
           );
         },
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 import 'app_text.dart';
@@ -23,8 +24,13 @@ ThemeData buildAppTheme() {
         borderSide: BorderSide(color: c, width: w),
       );
 
+  final baseTheme = ThemeData.light(useMaterial3: true);
+  final textTheme = GoogleFonts.notoSansBengaliTextTheme(baseTheme.textTheme);
+
   return ThemeData(
     useMaterial3: true,
+    fontFamily: GoogleFonts.notoSansBengali().fontFamily,
+    textTheme: textTheme,
     colorScheme: scheme,
     scaffoldBackgroundColor: AppColors.background,
     splashFactory: InkRipple.splashFactory,

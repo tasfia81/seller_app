@@ -84,6 +84,37 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget? buildPrefix() {
+      if (prefixText == null && prefixIcon == null) return null;
+      final isPhone = prefixText != null && (prefixText!.contains('৮৮০') || prefixText!.contains('880'));
+      return Padding(
+        padding: EdgeInsets.only(left: 14.w, right: 8.w),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (prefixIcon != null) ...[
+              Icon(prefixIcon, size: 20, color: AppColors.textSecondary),
+              if (prefixText != null) SizedBox(width: 6.w),
+            ],
+            if (prefixText != null) ...[
+              Text(
+                prefixText!.trim(),
+                style: AppText.input.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (isPhone) ...[
+                SizedBox(width: 8.w),
+                Container(width: 1, height: 18.h, color: AppColors.inputBorder),
+              ] else
+                SizedBox(width: 4.w),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -108,8 +139,8 @@ class AppTextField extends StatelessWidget {
           scrollPadding: EdgeInsets.only(bottom: 120.h),
           decoration: InputDecoration(
             hintText: hint,
-            prefixText: prefixText,
-            prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 20, color: AppColors.textSecondary),
+            prefixIcon: buildPrefix(),
+            prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
             suffixIcon: suffix,
             helperText: helper,
             helperStyle: AppText.small,

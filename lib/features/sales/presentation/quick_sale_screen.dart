@@ -165,7 +165,11 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9০-৯.]'))],
                 style: AppText.input.copyWith(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(
-                  prefixText: '৳ ',
+                  prefixIcon: Padding(
+                    padding: EdgeInsets.only(left: 14.w, right: 6.w),
+                    child: Text('৳', style: AppText.input.copyWith(fontWeight: FontWeight.w700)),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                   errorText: state.priceError,
                   filled: true,
                   fillColor: p.isPriceFlexible ? Colors.white : AppColors.background,

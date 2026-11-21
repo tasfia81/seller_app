@@ -89,7 +89,7 @@ class QuickSaleController extends AutoDisposeNotifier<QuickSaleState> {
   String _requestId = _newId();
 
   static String _newId() =>
-      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(1 << 32).toRadixString(16)}';
+      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(0x7FFFFFFF).toRadixString(16)}';
 
   @override
   QuickSaleState build() => const QuickSaleState();

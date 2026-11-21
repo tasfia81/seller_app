@@ -81,9 +81,9 @@ class _IntroScreenState extends State<IntroScreen> {
                     child: TextButton(
                       onPressed: _finish,
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0x38FFFFFF),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(48, 40),
+                        backgroundColor: const Color(0x1F1B5E20),
+                        foregroundColor: AppColors.primaryDark,
+                        minimumSize: const Size(48, 38),
                         shape: const StadiumBorder(),
                         textStyle: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600),
                       ),
@@ -123,18 +123,18 @@ class _SlideView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Expanded(flex: 11, child: IntroHero(child: slide.art)),
+        Expanded(flex: 10, child: IntroHero(child: slide.art)),
         Expanded(
-          flex: 6,
+          flex: 7,
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(24.w, 8.h, 24.w, 0),
+            padding: EdgeInsets.fromLTRB(24.w, 12.h, 24.w, 0),
             child: Column(children: [
               Text(slide.title, textAlign: TextAlign.center, style: AppText.headline),
               SizedBox(height: 8.h),
               Text(slide.body,
                   textAlign: TextAlign.center,
-                  style: AppText.body.copyWith(color: AppColors.textSecondary, height: 1.65)),
+                  style: AppText.body.copyWith(color: AppColors.textSecondary, height: 1.6)),
             ]),
           ),
         ),

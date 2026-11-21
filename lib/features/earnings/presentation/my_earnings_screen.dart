@@ -37,7 +37,8 @@ class _MyEarningsScreenState extends ConsumerState<MyEarningsScreen> {
           onRefresh: () async {
             ref.invalidate(earningsHistoryProvider);
             ref.invalidate(payoutsProvider);
-            await ref.refresh(earningsSummaryProvider.future);
+            ref.invalidate(earningsSummaryProvider);
+            await ref.read(earningsSummaryProvider.future);
           },
           child: ListView(
             padding: EdgeInsets.all(16.r),

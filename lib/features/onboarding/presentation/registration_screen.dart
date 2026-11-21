@@ -195,9 +195,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             ),
           ],
           bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(16),
+            preferredSize: const Size.fromHeight(20),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12),
+              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10),
               child: StepProgress(total: 5, current: _step + 1),
             ),
           ),

@@ -29,7 +29,8 @@ class MyInventoryScreen extends ConsumerWidget {
         data: (s) => RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(stockMovementsProvider);
-            await ref.refresh(inventorySummaryProvider.future);
+            ref.invalidate(inventorySummaryProvider);
+            await ref.read(inventorySummaryProvider.future);
           },
           child: ListView(
             padding: EdgeInsets.all(16.r),

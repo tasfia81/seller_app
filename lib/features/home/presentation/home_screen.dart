@@ -25,13 +25,17 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 72.h.clamp(64.0, 84.0).toDouble(),
+        toolbarHeight: 84.h.clamp(76.0, 96.0).toDouble(),
         titleSpacing: 16.w,
-        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${BnFormat.greeting(now)},', style: AppText.caption),
-          Text(seller?.name ?? ' ', style: AppText.pageTitle),
-          Text(BnFormat.weekdayDate(now), style: AppText.caption),
-        ]),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${BnFormat.greeting(now)},', style: AppText.caption),
+            Text(seller?.name ?? ' ', style: AppText.pageTitle),
+            Text(BnFormat.weekdayDate(now), style: AppText.caption),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: unread > 0 ? 'নোটিফিকেশন, ${BnFormat.digits('$unread')}টি নতুন' : 'নোটিফিকেশন',
