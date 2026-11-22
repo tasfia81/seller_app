@@ -3,6 +3,7 @@
 Run:  uvicorn app.main:app --reload       Docs: http://127.0.0.1:8000/docs
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,14 +13,19 @@ from .api import admin, admin_investors, auth, investor, seller
 from .core.config import settings
 from .core.errors import register_error_handlers
 from .storage import get_store
-from .storage.seed import seed
+from .storage.seed import bootstrap, seed
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     store = get_store()
-    if settings.seed_demo_data and store.is_empty():
-        seed(store)
+    if store.is_empty():
+        if settings.seed_demo_data:
+            seed(store)
+        else:
+            bootstrap(store, settings.admin_name, settings.admin_mobile, settings.admin_password)
+            if settings.admin_password == "admin1234":
+                logging.getLogger("street_sales").warning("Default admin password in use — set ADMIN_PASSWORD before going live.")
     yield
 
 

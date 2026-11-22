@@ -127,3 +127,34 @@ export interface ApiSellerOverview {
 }
 
 export const placeText = (a: ApiAddress | string) => (typeof a === "string" ? a : addressText(a));
+
+export type ApiUnit = "piece" | "kg" | "gram" | "liter" | "packet" | "bottle" | "box";
+export const UNIT_LABELS: Record<ApiUnit, string> = { piece: "পিস", kg: "কেজি", gram: "গ্রাম", liter: "লিটার", packet: "প্যাকেট", bottle: "বোতল", box: "বক্স" };
+
+export interface ApiCategory { id: string; name: string; archived: boolean; product_count: number }
+
+export interface ApiProduct {
+  id: string;
+  name: string;
+  category_id: string;
+  category_name: string | null;
+  sku: string;
+  description: string | null;
+  unit: ApiUnit;
+  unit_label: string;
+  quantity_step: number;
+  unit_cost: number;
+  price: number;
+  min_price: number | null;
+  max_price: number | null;
+  price_editable: boolean;
+  variant_label: string | null;
+  variants: string[];
+  low_stock_at: number;
+  track_stock: boolean;
+  track_expiry: boolean;
+  discount_allowed: boolean;
+  active: boolean;
+  stock: { warehouse: number; reserved: number; damaged: number; with_sellers: number };
+  stock_status: "ok" | "low_stock" | "out_of_stock";
+}

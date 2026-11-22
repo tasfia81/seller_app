@@ -21,7 +21,12 @@ class Settings:
     # Change in production! Used to sign login tokens.
     secret_key: str = os.getenv("SECRET_KEY", "dev-only-change-me")
     token_ttl_hours: int = int(os.getenv("TOKEN_TTL_HOURS", "72"))
-    seed_demo_data: bool = os.getenv("SEED_DEMO_DATA", "true").lower() == "true"
+    # Demo products/sellers/sales are only for tests and demos. A real database starts empty.
+    seed_demo_data: bool = os.getenv("SEED_DEMO_DATA", "false").lower() == "true"
+    # First admin account, created once when the database is empty. Change the password in production.
+    admin_name: str = os.getenv("ADMIN_NAME", "অ্যাডমিন")
+    admin_mobile: str = os.getenv("ADMIN_MOBILE", "01711000000")
+    admin_password: str = os.getenv("ADMIN_PASSWORD", "admin1234")
     cors_origins: list[str] = field(
         default_factory=lambda: os.getenv(
             "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"

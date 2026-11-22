@@ -35,7 +35,17 @@ def _applicant(name: str, mobile: str, nid: str, dob: date) -> ApplicationIn:
     )
 
 
+def bootstrap(store: Store, name: str, mobile: str, password: str) -> None:
+    """Real start: only business settings and the first admin. Everything else is entered from the admin panel."""
+    with store.transaction() as tx:
+        tx.put(SETTINGS, DEFAULT_SETTINGS)
+        tx.put(USERS, {"id": "usr_admin", "role": "admin", "name": name, "mobile": mobile, "email": None,
+                       "password_hash": hash_password(password), "status": "active", "seller_id": None, "application_id": None,
+                       "session_version": 0, "created_at": now_iso()})
+
+
 def seed(store: Store) -> None:
+    """Demo data for tests and demos only (SEED_DEMO_DATA=true)."""
     with store.transaction() as tx:
         tx.put(SETTINGS, DEFAULT_SETTINGS)
         tx.put(USERS, {"id": "usr_admin", "role": "admin", "name": ADMIN["name"], "mobile": "01711000000", "email": "admin@streetsales.local",
