@@ -65,3 +65,29 @@ def require_active_seller(user: UserDep, store: StoreDep) -> SellerCtx:
 
 
 SellerDep = Annotated[SellerCtx, Depends(require_active_seller)]
+
+
+@dataclass
+class InvestorCtx:
+    user: dict[str, Any]
+    investor: dict[str, Any]
+
+    @property
+    def id(self) -> str:
+        return self.investor["id"]
+
+
+def require_investor(user: UserDep, store: StoreDep) -> InvestorCtx:
+    """Approved investors. Suspended investors can still read their numbers; write actions check status in the service."""
+    if user["role"] != "investor":
+        raise Forbidden("এই অংশ শুধু বিনিয়োগকারীদের জন্য।")
+    if not user.get("investor_id"):
+        raise Forbidden("আবেদন অনুমোদনের পর এই অংশ চালু হবে।", code="application_pending")
+    with store.transaction() as tx:
+        investor = tx.get("investors", user["investor_id"])
+    if not investor:
+        raise Forbidden("বিনিয়োগকারীর অ্যাকাউন্ট পাওয়া যায়নি।", code="investor_missing")
+    return InvestorCtx(user=user, investor=investor)
+
+
+InvestorDep = Annotated[InvestorCtx, Depends(require_investor)]

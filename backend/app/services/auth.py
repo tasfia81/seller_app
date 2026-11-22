@@ -18,7 +18,7 @@ def find_user(tx: Tx, identifier: str) -> dict[str, Any] | None:
 
 
 def public_user(tx: Tx, user: dict[str, Any]) -> dict[str, Any]:
-    out = {k: user.get(k) for k in ("id", "role", "name", "mobile", "email", "status", "seller_id", "application_id")}
+    out = {k: user.get(k) for k in ("id", "role", "name", "mobile", "email", "status", "seller_id", "investor_id", "application_id")}
     if user.get("seller_id"):
         seller = tx.get(SELLERS, user["seller_id"])
         out["seller_status"] = seller["status"] if seller else None

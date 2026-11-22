@@ -14,7 +14,7 @@ from ..core.utils import money, new_id, now_iso
 from ..schemas import AssignmentIn, DamageIn, ReturnApproveIn, ReturnIn, StockReceiptIn, TransferIn
 from ..storage import Tx
 from .catalog import UNIT_LABEL, stock_totals
-from .common import (ASSIGNMENTS, DAMAGES, MOVEMENTS, PRODUCTS, RETURNS, SELLER_STOCK, SELLERS, WAREHOUSE, add_movement, audit, get_seller_stock,
+from .common import (ASSIGNMENTS, DAMAGES, LOTS, MOVEMENTS, PRODUCTS, RETURNS, SELLER_STOCK, SELLERS, WAREHOUSE, add_movement, audit, get_seller_stock,
                      get_warehouse, notify, product_name, require)
 
 ASSIGNMENT_LABEL = {"pending_handover": "হস্তান্তর বাকি", "active": "চালু", "partially_returned": "আংশিক ফেরত", "closed": "বন্ধ", "cancelled": "বাতিল"}
@@ -46,7 +46,12 @@ def receive_stock(tx: Tx, admin: dict[str, Any], data: StockReceiptIn) -> dict[s
     add_movement(tx, kind="receipt", product_id=product["id"], variant=data.variant, qty=data.quantity,
                  source=data.supplier or "সরবরাহকারী", destination="warehouse", ref=ref, by=admin["name"])
     audit(tx, admin, "stock.received", product["id"], f"{product_name(tx, product['id'], data.variant)} +{data.quantity:g} · ৳{data.unit_cost:g}/ইউনিট")
-    return {"product_id": product["id"], "variant": data.variant, "warehouse_qty": wh["qty"], "total_cost": money(data.quantity * data.unit_cost), "ref": ref}
+    # Every receipt is a lot. Sales are matched to lots oldest-first, which is how
+    # investor-funded stock earns its own profit (see services/investors.py).
+    lot_id = new_id("lot")
+    tx.put(LOTS, {"id": lot_id, "seq": len(tx.list(LOTS)), "product_id": product["id"], "variant": data.variant, "qty": data.quantity,
+                  "unit_cost": data.unit_cost, "ref": ref, "supplier": data.supplier, "received_at": now_iso(), "funding": [], "company_amount": None})
+    return {"product_id": product["id"], "variant": data.variant, "warehouse_qty": wh["qty"], "total_cost": money(data.quantity * data.unit_cost), "ref": ref, "lot_id": lot_id}
 
 
 def inventory_overview(tx: Tx) -> dict[str, Any]:

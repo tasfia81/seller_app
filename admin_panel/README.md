@@ -21,6 +21,12 @@ Open http://localhost:3000 (redirects to `/dashboard`). Production: `npm run bui
   "server not connected yet" notice. Nothing is faked as saved or successful.
 - Login accepts any input and opens the dashboard; password recovery never sends or verifies a real code.
 
+## Investors and messages
+- `/investors` list, `/investors/applications` KYC review, `/investors/[id]` profile
+- `/investments` record investment receipts + split who funded a new batch, `/investor-profit` monthly profit distribution, `/investor-withdrawals` capital returns
+- `/messages` send in-app notifications to sellers/investors (everyone, a group, or specific people)
+- These are demo data too (`src/lib/investors.ts`); the backend API is ready (`backend/README.md`).
+
 ## Structure
 
 ```

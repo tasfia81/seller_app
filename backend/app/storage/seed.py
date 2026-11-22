@@ -5,6 +5,7 @@ people or NID numbers. Logins (development only):
     admin  : 01711000000 / admin1234
     seller : 01712345678 / seller1234   (রাকিব হাসান)
     seller : 01819223344 / seller1234   (নুসরাত জাহান)
+    investor: 01913000000 / invest1234  (আশরাফুল করিম — funded the jersey L batch)
 """
 
 from datetime import date
@@ -12,7 +13,8 @@ from datetime import date
 from ..core.security import hash_password
 from ..core.utils import now_iso
 from ..schemas import ApplicationIn, AssignItemIn, AssignmentIn, CategoryIn, HandoverIn, ProductIn, SaleIn, StockReceiptIn
-from ..services import applications, catalog, finance, inventory, sales
+from ..schemas_investor import FundedBatchIn, FundingPartIn, InvestmentIn, InvestorApplicationIn
+from ..services import applications, catalog, finance, inventory, investors, sales
 from ..services.common import SETTINGS, USERS
 from ..services.system import DEFAULT_SETTINGS
 from .base import Store
@@ -52,10 +54,28 @@ def seed(store: Store) -> None:
         }.items():
             P[key] = catalog.create_product(tx, ADMIN, data)["id"]
 
+        # Demo investor: approved through the normal KYC flow, money recorded, then funds a batch.
+        inv_app = investors.submit_application(tx, InvestorApplicationIn(
+            full_name="আশরাফুল করিম", mobile="01913000000", date_of_birth=date(1986, 5, 20), occupation="চাকরিজীবী", funds_source="বেতন / সঞ্চয়",
+            address=_addr("বাড়ি ৪, রোড ৭", "উত্তরা", "ঢাকা"), nid_number="4455667788", proposed_amount=50000,
+            payout={"method": "bkash", "account_name": "আশরাফুল করিম", "account_number": "01913000000"},
+            nominee={"name": "রেহানা করিম", "relation": "স্ত্রী", "mobile": "01913000111"},
+            password="invest1234", accepted_risk=True, accepted_terms=True))
+        inv_user = tx.get(USERS, inv_app["user_id"])
+        for kind in investors.DOC_KINDS:
+            investors.record_document(tx, inv_user, kind, "seed/placeholder.jpg", "image/jpeg")
+        investor_id = investors.approve_application(tx, ADMIN, inv_app["application_id"], None)["investor_id"]
+        investors.record_investment(tx, ADMIN, InvestmentIn(investor_id=investor_id, amount=50000, method="bank", reference="SEED-FT-0001",
+                                                           received_on=date(2026, 11, 1), seen_in_statement=True, client_request_id="seed-investment-01"))
+
         for key, variant, qty in [("jersey", "S", 10), ("jersey", "M", 30), ("jersey", "L", 60), ("jersey", "XL", 20), ("polo", "M", 24), ("polo", "L", 30),
                                   ("polo", "XL", 22), ("basic", "M", 80), ("basic", "L", 60), ("basic", "XL", 40), ("jogger", "M", 20), ("jogger", "L", 24),
                                   ("jogger", "XL", 10), ("cap", None, 26)]:
             cost = {"jersey": 350, "polo": 260, "basic": 160, "jogger": 360, "cap": 110}[key]
+            if (key, variant) == ("jersey", "L"):  # 60 × ৳350 = ৳21,000, all investor money
+                investors.fund_batch(tx, ADMIN, FundedBatchIn(product_id=P[key], variant=variant, quantity=qty, unit_cost=cost, batch_ref="ব্যাচ-৮৮",
+                                                              supplier="রহমান গার্মেন্টস", parts=[FundingPartIn(investor_id=investor_id, amount=qty * cost)]))
+                continue
             inventory.receive_stock(tx, ADMIN, StockReceiptIn(product_id=P[key], variant=variant, quantity=qty, unit_cost=cost, supplier="রহমান গার্মেন্টস", batch_ref="ব্যাচ-৮৮"))
 
         sellers_created = {}

@@ -28,6 +28,12 @@ EXPENSES = "expenses"
 NOTIFICATIONS = "notifications"
 AUDIT = "audit_log"
 SETTINGS = "settings"
+LOTS = "stock_lots"  # every stock receipt; funded lots carry investor shares
+INVESTORS = "investors"
+INV_APPS = "investor_applications"
+INV_TXNS = "investor_transactions"
+INV_RUNS = "investor_profit_runs"
+INV_WITHDRAWALS = "investor_withdrawals"
 
 SELLER_CASH_METHODS = {"cash", "other"}  # money that stays in the seller's hand
 

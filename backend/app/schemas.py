@@ -295,3 +295,12 @@ class SettingsIn(In):
     business: dict | None = None
     inventory: dict | None = None
     payments: dict | None = None
+
+
+# ---------- admin messages to sellers / investors ----------
+class MessageIn(In):
+    audience: Literal["sellers", "investors", "all_sellers", "all_investors", "everyone"]
+    recipient_ids: list[str] = Field(default_factory=list, description="sellers/investors হলে যাদের পাঠাবেন তাদের আইডি")
+    title: str = Field(min_length=2, max_length=80)
+    body: str = Field(min_length=2, max_length=1000)
+    client_request_id: str = Field(min_length=8, max_length=64)

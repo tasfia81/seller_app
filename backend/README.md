@@ -24,6 +24,7 @@ Data is stored in `data/db.json` (photos in `data/uploads/`). On first start the
 | Admin | 01711000000 | admin1234 |
 | Seller (Rakib, active, has sales) | 01712345678 | seller1234 |
 | Seller (Nusrat, assignment pending) | 01819223344 | seller1234 |
+| Investor (Ashraful — funded jersey L batch) | 01913000000 | invest1234 |
 
 Login: `POST /api/v1/auth/login` `{ "identifier": "...", "password": "..." }` → `access_token`. After that, send `Authorization: Bearer <token>` with every request.
 
@@ -78,6 +79,22 @@ Error format: `{"error": {"code": "insufficient_stock", "message": "<Bangla mess
 - Cash / payouts / expenses: handovers verify/reject, `POST /payouts` (duplicate-safe), expenses
 - Settlements: `settlements/{seller_id}/{day}` detail, `close`, `exception`, `request-correction`
 - System: notifications, `audit-log`, `settings`
+
+**Investor app** (`/api/v1/investor`)
+- Application: `POST /applications`, `POST /application/documents/{nid_front|nid_back|selfie}`, `GET /application`, `POST /application/resubmit`
+- `GET /dashboard`, `GET /portfolio`, `GET /products/{id}`, `GET /sellers` (name and area only — no phone/NID), `GET /ledger`, `GET /reports`
+- `PUT /preferences` (take profit as cash / reinvest), `GET|POST /withdrawals`, `GET /notifications`
+
+**Admin · investors and messages** (`/api/v1/admin`)
+- KYC: `investor-applications` list/detail, `start-review`, `approve` (with terms), `reject`, `request-info`, `reveal-nid` (audited), documents
+- `GET /investors`, `GET /investors/{id}`, `POST /investors/{id}/status`, `PUT /investors/{id}/terms`
+- Money: `POST /investments` (same reference never twice), `GET /investor-capital`, `GET|POST /fundings` (put a new batch into stock + split who funded it)
+- Profit: `GET /investor-profit/{YYYY-MM}` (draft/approved), `POST …/approve` (only after month-end), `POST …/pay` (no double payment)
+- Capital return: `GET /investor-withdrawals`, `…/{id}/approve|reject|pay` (pays only up to the investor's uninvested money)
+- Messages: `POST /messages` (to all/selected sellers or investors → in-app notification), `GET /messages`
+
+### How investor profit is calculated
+Every stock receipt is a **lot**. Investors' money funds lots (company money covers the rest). Sales are matched to lots of the same product and size **oldest-first**. Net profit = sale − lot's cost price − seller commission; an investor gets (their amount ÷ lot cost) × net × their share %. Money that is not in unsold stock is "uninvested" — usable for new stock or for withdrawal. Once a month's profit is approved it is locked, and later corrections don't change it.
 
 Full list with request/response schemas: `/docs`.
 

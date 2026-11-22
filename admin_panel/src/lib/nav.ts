@@ -31,8 +31,15 @@ export const sidebar: { title: string; items: NavItem[] }[] = [
     { href: "/settlements", label: "দিনের হিসাব", icon: "cal" },
     { href: "/expenses", label: "খরচ", icon: "chart" },
   ] },
+  { title: "বিনিয়োগকারী", items: [
+    { href: "/investors", label: "বিনিয়োগকারী", icon: "shield", badge: "৩" },
+    { href: "/investments", label: "বিনিয়োগ ও পুঁজি", icon: "wallet" },
+    { href: "/investor-profit", label: "লাভ বিতরণ", icon: "trend" },
+    { href: "/investor-withdrawals", label: "মূলধন ফেরত", icon: "ret", badge: "২" },
+  ] },
   { title: "বিশ্লেষণ", items: [
     { href: "/reports", label: "রিপোর্ট", icon: "trend" },
+    { href: "/messages", label: "বার্তা পাঠান", icon: "bell" },
     { href: "/activity", label: "নোটিফিকেশন ও লগ", icon: "history" },
     { href: "/settings", label: "সেটিংস", icon: "gear" },
   ] },
