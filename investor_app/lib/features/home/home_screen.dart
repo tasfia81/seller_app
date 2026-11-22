@@ -17,8 +17,6 @@ import '../../data/models.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
-  static const _overlap = 76.0;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(summaryProvider);
@@ -32,17 +30,28 @@ class HomeScreen extends ConsumerWidget {
       value: SystemUiOverlayStyle.light,
       child: CustomScrollView(
         slivers: [
-          SliverToBoxAdapter(child: _Header(summary: s, overlap: _overlap.h)),
           SliverToBoxAdapter(
-            // Pull the content up so the quick-action card overlaps the header.
-            child: Transform.translate(
-              offset: Offset(0, -_overlap.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _QuickActions(summary: s, inHand: sellers.fold(0, (sum, x) => sum + x.inHand)),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 22.h, 16.w, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 64.h),
+                      child: _Header(summary: s),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _QuickActions(summary: s, inHand: sellers.fold(0, (sum, x) => sum + x.inHand)),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 20.h, 16.w, 0),
                     child: _ProfitTiles(summary: s),
                   ),
                   Padding(
@@ -71,10 +80,10 @@ class HomeScreen extends ConsumerWidget {
                     trend: const [26, 24, 25, 19, 21, 14, 9, 6],
                     onTap: () => context.push(AppRoutes.sellers),
                   ),
+                  SizedBox(height: 24.h),
                 ],
               ),
             ),
-          ),
         ],
       ),
     );
@@ -82,17 +91,16 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends ConsumerWidget {
-  const _Header({required this.summary, required this.overlap});
+  const _Header({required this.summary});
 
   final PortfolioSummary summary;
-  final double overlap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     return GradientHeader(
-      rounded: false,
-      padding: EdgeInsets.fromLTRB(20.w, MediaQuery.paddingOf(context).top + 10.h, 20.w, overlap + 20.h),
+      rounded: true,
+      padding: EdgeInsets.fromLTRB(20.w, MediaQuery.paddingOf(context).top + 10.h, 20.w, 80.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
