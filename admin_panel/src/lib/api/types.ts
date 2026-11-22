@@ -84,3 +84,46 @@ export interface ApiApplication {
 }
 
 export const addressText = (a: ApiAddress) => [a.detail, a.upazila, a.district].filter(Boolean).join(", ");
+
+export type ApiSellerStatus = "active" | "inactive" | "suspended";
+export type ApiPolicy = "daily_return" | "carry_forward";
+
+export interface ApiSellerRow {
+  id: string;
+  name: string;
+  mobile: string;
+  status: ApiSellerStatus;
+  status_label: string;
+  compensation: string;
+  model: "profit" | "daily" | "per_unit" | "hybrid";
+  policy: ApiPolicy;
+  policy_label: string;
+  today_sales: number;
+  today_items: number;
+  cash_due: number;
+}
+
+export interface ApiSellerOverview {
+  seller: {
+    id: string;
+    name: string;
+    mobile: string;
+    status: ApiSellerStatus;
+    status_label: string;
+    present_address: ApiAddress | string;
+    permanent_address: ApiAddress | string;
+    emergency: { name: string; relation: string; mobile: string };
+    nid_masked: string;
+    policy: ApiPolicy;
+    policy_label: string;
+    permissions: { can_edit_price: boolean; can_discount: boolean; can_take_digital: boolean };
+    joined_at: string;
+  };
+  compensation: { label: string; effective_from?: string; model: string };
+  kpis: { today_sales: number; month_sales: number; assigned: number; available: number; cash_due: number; earnings_payable: number };
+  assignments: { id: string; status: string; created_at: string; items: { product_id: string; variant: string | null; name: string; quantity: number; sold: number; returned: number }[] }[];
+  cash: { collected: number; verified: number; pending_verification: number; due: number; to_submit: number };
+  earnings: { today: number; this_month: number; pending: number; approved: number; total_paid: number; outstanding: number };
+}
+
+export const placeText = (a: ApiAddress | string) => (typeof a === "string" ? a : addressText(a));

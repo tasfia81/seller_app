@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { Avatar, EmptyState, StatusChip } from "@/components/ui/bits";
-import { money } from "@/lib/format";
-import { policyLabel, sellerStatus } from "@/lib/labels";
-import type { CompensationModel, Seller, SellerStatus } from "@/lib/types";
+import { Avatar, Chip, EmptyState } from "@/components/ui/bits";
+import type { ApiSellerRow, ApiSellerStatus } from "@/lib/api/types";
+import { bnDigits, money } from "@/lib/format";
+
+type SellerStatus = ApiSellerStatus;
+type CompensationModel = ApiSellerRow["model"];
+const TONE = { active: "ok", inactive: "nu", suspended: "er" } as const;
 
 const STATUS: { id: SellerStatus | "all"; label: string }[] = [
   { id: "all", label: "সব" },
@@ -17,11 +20,11 @@ const STATUS: { id: SellerStatus | "all"; label: string }[] = [
 const MODELS: { id: CompensationModel; label: string }[] = [
   { id: "profit", label: "লাভের ভাগ" },
   { id: "daily", label: "দৈনিক মজুরি" },
-  { id: "perUnit", label: "প্রতি পিস" },
+  { id: "per_unit", label: "প্রতি পিস" },
   { id: "hybrid", label: "মিশ্র" },
 ];
 
-export function SellersTable({ items }: { items: Seller[] }) {
+export function SellersTable({ items }: { items: ApiSellerRow[] }) {
   const [status, setStatus] = useState<SellerStatus | "all">("all");
   const [model, setModel] = useState<CompensationModel | null>(null);
   const [q, setQ] = useState("");
@@ -60,14 +63,14 @@ export function SellersTable({ items }: { items: Seller[] }) {
                   <td>
                     <Link className="sl" href={`/sellers/${s.id}`}>
                       <Avatar name={s.name} />
-                      <span><b>{s.name}</b><span className="mu">{s.mobile}</span></span>
+                      <span><b>{s.name}</b><span className="mu">{bnDigits(s.mobile)}</span></span>
                     </Link>
                   </td>
-                  <td><StatusChip value={sellerStatus[s.status]} /></td>
-                  <td>{s.compensation}</td>
-                  <td>{policyLabel[s.policy]}</td>
-                  <td className="n"><b>{money(s.todaySales)}</b></td>
-                  <td className="n" style={s.cashDue ? { color: s.status === "suspended" ? "#A92F2F" : "#85560C", fontWeight: 600 } : undefined}>{money(s.cashDue)}</td>
+                  <td><Chip tone={TONE[s.status]}>{s.status_label}</Chip></td>
+                  <td>{bnDigits(s.compensation)}</td>
+                  <td>{s.policy_label}</td>
+                  <td className="n"><b>{money(s.today_sales)}</b></td>
+                  <td className="n" style={s.cash_due ? { color: s.status === "suspended" ? "#A92F2F" : "#85560C", fontWeight: 600 } : undefined}>{money(s.cash_due)}</td>
                   <td className="n">
                     <Link href={`/sellers/${s.id}`} aria-label={`${s.name}-এর প্রোফাইল`} className="ib" style={{ display: "inline-flex", width: 36, height: 36 }}>
                       <Icon name="chev" />
