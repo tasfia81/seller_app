@@ -7,7 +7,7 @@ import { bottomNav, sidebar } from "@/lib/nav";
 
 const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
-export function Sidebar() {
+export function Sidebar({ footer }: { footer?: React.ReactNode }) {
   const pathname = usePathname();
   return (
     <nav className="sb" aria-label="অ্যাডমিন মেনু">
@@ -37,13 +37,7 @@ export function Sidebar() {
           ))}
         </div>
       ))}
-      <div className="sb-user">
-        <span className="av" style={{ width: 34, height: 34 }}>তা</span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>তানভীর আহমেদ</div>
-          <div style={{ fontSize: 11.5, color: "#9cc9ae" }}>ব্যবসার মালিক</div>
-        </div>
-      </div>
+      {footer}
     </nav>
   );
 }

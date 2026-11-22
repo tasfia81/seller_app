@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { LoginForm } from "./LoginForm";
 
 export const metadata = { title: "লগইন" };
 
-export default function LoginPage() {
+export default function LoginPage(props: PageProps<"/login">) {
   return (
     <div className="auth">
       <section className="auth-brand">
@@ -42,8 +43,15 @@ export default function LoginPage() {
         </div>
       </section>
       <section className="auth-form">
-        <LoginForm />
+        <Suspense fallback={<div className="auth-box" aria-busy="true" />}>
+          <LoginWithNotice searchParams={props.searchParams} />
+        </Suspense>
       </section>
     </div>
   );
+}
+
+async function LoginWithNotice({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  return <LoginForm expired={sp.expired === "1"} />;
 }
