@@ -237,3 +237,41 @@ export interface ApiCorrection {
   created_at: string;
 }
 
+
+export type ApiHandoverStatus = "pending" | "verified" | "rejected";
+
+export interface ApiHandover {
+  id: string;
+  seller_id: string;
+  seller_name: string;
+  amount: number;
+  method: string;
+  reference: string | null;
+  note: string | null;
+  status: ApiHandoverStatus;
+  submitted_at: string;
+  received_amount: number | null;
+  shortfall?: number;
+  verified_by?: string;
+  verified_at?: string;
+  history: { action: string; by: string; at: string; note: string | null }[];
+}
+
+export interface ApiCashSummary { collected: number; verified: number; pending_verification: number; due: number; to_submit: number }
+
+export interface ApiCashOverview {
+  totals: ApiCashSummary;
+  business_direct_today: number;
+  sellers: (ApiCashSummary & { seller_id: string; seller_name: string })[];
+}
+
+export interface ApiPayout { id: string; seller_id: string; seller_name: string; amount: number; method: string; reference: string | null; note: string | null; by: string; at: string; status: string }
+
+export interface ApiPayoutsOverview {
+  totals: { earned: number; approved: number; paid: number; outstanding: number };
+  sellers: { seller_id: string; seller_name: string; earned: number; approved: number; paid: number; outstanding: number }[];
+  history: ApiPayout[];
+}
+
+export interface ApiExpense { id: string; category: string; amount: number; date: string; description: string; seller_id: string | null; product_id: string | null; recorded_by: string; at: string }
+export interface ApiExpenseList { total: number; by_category: Record<string, number>; items: ApiExpense[] }

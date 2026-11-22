@@ -75,3 +75,8 @@ export function bnDate(iso: string, withYear = false): string {
 }
 
 export const bnDateTime = (iso: string) => `${bnDate(iso)}, ${bnTime(iso)}`;
+
+/** Current date in Dhaka as YYYY-MM-DD (for date inputs). */
+export function dhakaToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(new Date());
+}
