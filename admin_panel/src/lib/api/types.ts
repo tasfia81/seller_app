@@ -175,6 +175,24 @@ export interface ApiInventory {
   }[];
 }
 
+export type ApiAssignmentStatus = "pending_handover" | "active" | "partially_returned" | "closed" | "cancelled";
+
+export interface ApiAssignment {
+  id: string;
+  seller_id: string;
+  seller_name: string;
+  status: ApiAssignmentStatus;
+  status_label: string;
+  price_mode: "fixed" | "flexible";
+  discount_allowed?: boolean;
+  policy?: string;
+  created_at: string;
+  accepted_at: string | null;
+  items: { product_id: string; variant: string | null; name: string; quantity: number; sold: number; returned: number; remaining: number }[];
+  totals: { quantity: number; sold: number; returned: number; remaining: number };
+  history: { title: string; by: string; at: string }[];
+}
+
 export interface ApiMovement {
   id: string;
   kind: "receipt" | "assignment" | "sale" | "return" | "damage" | "transfer_out" | "adjustment";
