@@ -1,6 +1,6 @@
 # স্ট্রিট সেলস — Seller App (UI phase)
 
-> This repository also contains the **admin web panel** in [`admin_panel/`](admin_panel/README.md) (Next.js).
+> This repository also contains the **admin web panel** in [`admin_panel/`](admin_panel/README.md) (Next.js), the **FastAPI backend** in [`backend/`](backend/README.md) and the **investor app** in [`investor_app/`](investor_app/README.md) (Flutter).
 
 Bangla-first Flutter UI for the street-sales seller app. This phase is **UI only**: no backend, no real auth/OTP, no real money movement.
 
