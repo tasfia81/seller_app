@@ -1,69 +1,81 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { useRouter } from "next/navigation";
+import { PERIODS, type Period } from "@/components/dashboard/DateFilter";
 import { EmptyState, KV, Kpi, Note } from "@/components/ui/bits";
-import { ActionButton, Pills } from "@/components/ui/feedback";
-import { bnDigits, money } from "@/lib/format";
-import { paymentLabel } from "@/lib/labels";
-import type { PaymentMethod, Sale } from "@/lib/types";
+import type { ApiSale, ApiSalesList, ApiSellerRow } from "@/lib/api/types";
+import { PAYMENT_LABELS } from "@/lib/api/labels";
+import { bnDateTime, bnDigits, money } from "@/lib/format";
 
-export function SalesMonitor({ items }: { items: Sale[] }) {
-  const [seller, setSeller] = useState("");
-  const [payment, setPayment] = useState<PaymentMethod | "">("");
-  const list = items.filter((s) => (!seller || s.seller === seller) && (!payment || s.payment === payment));
-  const [selId, setSelId] = useState(items[0]?.id);
-  const sel = list.find((s) => s.id === selId) ?? list[0];
+type Filters = { period: Period; seller: string; payment: string; id?: string };
 
-  const total = list.reduce((a, s) => a + s.qty * s.unitPrice, 0);
-  const qty = list.reduce((a, s) => a + s.qty, 0);
-  const profit = list.reduce((a, s) => a + s.qty * (s.unitPrice - s.cost), 0);
-  const commission = list.reduce((a, s) => a + s.qty * (s.unitPrice - s.cost) * s.commissionRate, 0);
-  const sellers = [...new Set(items.map((s) => s.seller))];
+function href(f: Filters) {
+  const q = new URLSearchParams({ period: f.period });
+  if (f.seller) q.set("seller", f.seller);
+  if (f.payment) q.set("payment", f.payment);
+  if (f.id) q.set("id", f.id);
+  return `/sales?${q}`;
+}
+
+const statusChip = (s: ApiSale) => <span className={`ch ${s.status === "confirmed" ? "ok" : "wa"}`}>{s.status_label}</span>;
+
+export function SalesMonitor({ period, seller, payment, list, sellers, selected }: Filters & { list: ApiSalesList; sellers: ApiSellerRow[]; selected: ApiSale | null }) {
+  const router = useRouter();
+  const f: Filters = { period, seller, payment };
+  const sm = list.summary;
+  const sel = selected;
 
   return (
     <>
       <div className="sh">
-        <Pills label="সময়" options={["আজ", "গতকাল", "সপ্তাহ", "মাস", "তারিখ"]} />
+        <div className="pills" role="group" aria-label="সময় বাছুন">
+          {PERIODS.map((p) => (
+            <Link key={p.id} href={href({ ...f, period: p.id })} className={`pill${period === p.id ? " on" : ""}`} aria-current={period === p.id ? "true" : undefined} style={{ textDecoration: "none" }}>{p.label}</Link>
+          ))}
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <select className="in" aria-label="সেলার" style={{ width: "auto", minWidth: 150, height: 36 }} value={seller} onChange={(e) => setSeller(e.target.value)}>
+          <select className="in" aria-label="সেলার" style={{ width: "auto", minWidth: 150, height: 36 }} value={seller} onChange={(e) => router.push(href({ ...f, seller: e.target.value }))}>
             <option value="">সব সেলার</option>
-            {sellers.map((s) => <option key={s}>{s}</option>)}
+            {sellers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <select className="in" aria-label="পেমেন্ট" style={{ width: "auto", minWidth: 140, height: 36 }} value={payment} onChange={(e) => setPayment(e.target.value as PaymentMethod | "")}>
+          <select className="in" aria-label="পেমেন্ট" style={{ width: "auto", minWidth: 140, height: 36 }} value={payment} onChange={(e) => router.push(href({ ...f, payment: e.target.value }))}>
             <option value="">সব পেমেন্ট</option>
-            <option value="cash">ক্যাশ</option><option value="bkash">বিকাশ</option><option value="nagad">নগদ</option>
+            {Object.entries(PAYMENT_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </div>
       </div>
       <div className="kpis">
-        <Kpi label="মোট বিক্রি" value={money(total)} />
-        <Kpi label="লেনদেন" value={bnDigits(list.length)} />
-        <Kpi label="বিক্রিত পণ্য" value={`${bnDigits(qty)} পিস`} />
-        <Kpi label="মোট লাভ" value={money(profit)} />
-        <Kpi label="সেলারদের কমিশন" value={money(commission)} />
+        <Kpi label="মোট বিক্রি" value={money(sm.total)} />
+        <Kpi label="লেনদেন" value={bnDigits(sm.count)} />
+        <Kpi label="বিক্রিত পরিমাণ" value={bnDigits(sm.quantity)} />
+        <Kpi label="মোট লাভ" value={money(sm.gross_profit ?? 0)} />
+        <Kpi label="সেলারদের আয়" value={money(sm.seller_earnings ?? 0)} />
       </div>
       <div className="two">
         <div className="a">
-          <div className="mu" style={{ display: "flex", gap: 6, alignItems: "center" }}><Icon name="clock" size={16} />সার্ভার চালু হলে নতুন বিক্রি নিজে থেকে উপরে যোগ হবে — পেজ রিফ্রেশ করতে হবে না।</div>
           <div className="tw">
-            {list.length === 0 ? (
-              <EmptyState icon="receipt" title="এই ফিল্টারে কোনো বিক্রি নেই" />
+            {list.items.length === 0 ? (
+              <EmptyState icon="receipt" title="এই সময়/ফিল্টারে কোনো বিক্রি নেই" text="সেলার অ্যাপ থেকে বিক্রি হলে এখানে দেখা যাবে।" />
             ) : (
               <table style={{ minWidth: 760 }}>
-                <thead><tr><th>বিক্রি নম্বর</th><th>সময়</th><th>সেলার</th><th>পণ্য</th><th className="n">পরিমাণ</th><th className="n">টাকা</th><th>পেমেন্ট</th><th>অবস্থা</th></tr></thead>
+                <thead><tr><th>রসিদ</th><th>সময়</th><th>সেলার</th><th>পণ্য</th><th className="n">পরিমাণ</th><th className="n">টাকা</th><th>পেমেন্ট</th><th>অবস্থা</th></tr></thead>
                 <tbody>
-                  {list.map((s) => (
-                    <tr key={s.id} className={`click${sel?.id === s.id ? " sel" : ""}`} onClick={() => setSelId(s.id)} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && setSelId(s.id)}>
-                      <td><b style={{ fontWeight: 600 }}>#{s.id}</b></td>
-                      <td>{s.time}</td><td>{s.seller}</td><td>{s.product}</td>
-                      <td className="n">{bnDigits(s.qty)}</td>
-                      <td className="n"><b>{money(s.qty * s.unitPrice)}</b></td>
-                      <td>{paymentLabel[s.payment]}</td>
-                      <td>{s.status === "confirmed" ? <span className="ch ok">নিশ্চিত</span> : <span className="ch wa">সংশোধন চাওয়া</span>}</td>
-                    </tr>
-                  ))}
+                  {list.items.map((s) => {
+                    const go = () => router.push(href({ ...f, id: s.id }), { scroll: false });
+                    return (
+                      <tr key={s.id} className={`click${sel?.id === s.id ? " sel" : ""}`} onClick={go} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && go()}>
+                        <td><b style={{ fontWeight: 600 }}>{s.receipt_no}</b></td>
+                        <td>{bnDateTime(s.created_at)}</td>
+                        <td>{s.seller_name}</td>
+                        <td>{s.product_name}</td>
+                        <td className="n">{bnDigits(s.quantity)}</td>
+                        <td className="n"><b>{money(s.total)}</b></td>
+                        <td>{s.payment_label}</td>
+                        <td>{statusChip(s)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -72,24 +84,30 @@ export function SalesMonitor({ items }: { items: Sale[] }) {
         {sel ? (
           <div className="b">
             <section className="drawer">
-              <div className="sh"><h2 className="h2">বিক্রি #{sel.id}</h2>{sel.status === "confirmed" ? <span className="ch ok">নিশ্চিত</span> : <span className="ch wa">সংশোধন চাওয়া</span>}</div>
-              <div className="mu">আজ {sel.time} · {sel.seller}</div>
-              <KV label="পণ্য">{sel.product}</KV>
-              <KV label="পরিমাণ × দাম">{bnDigits(sel.qty)} × {money(sel.unitPrice)}</KV>
-              <KV label="মোট বিক্রি">{money(sel.qty * sel.unitPrice)}</KV>
-              <KV label="ক্রয়মূল্য (বিক্রির সময়ের)">{money(sel.qty * sel.cost)}</KV>
-              <KV label="মোট লাভ"><span style={{ color: "#0F6A38" }}>{money(sel.qty * (sel.unitPrice - sel.cost))}</span></KV>
-              <KV label="সেলারের কমিশন">{sel.commissionRate ? `${money(sel.qty * (sel.unitPrice - sel.cost) * sel.commissionRate)} (${bnDigits(sel.commissionRate * 100)}%)` : "অন্য নিয়মে"}</KV>
-              <KV label="পেমেন্ট">{paymentLabel[sel.payment]}</KV>
-              <KV label="টাকা গেছে">{sel.payment === "cash" ? "সেলারের হাতে (জমা দিতে হবে)" : "ব্যবসার অ্যাকাউন্টে"}</KV>
-              {sel.payment !== "cash" ? <Note>বিকাশ/নগদে সরাসরি ব্যবসায় আসা টাকা সেলারের বাকি ক্যাশে যোগ হয় না।</Note> : null}
-              <div className="actions">
-                <ActionButton className="btn g sm">রসিদ</ActionButton>
-                <Link className="btn g sm" href="/corrections">সংশোধনের ইতিহাস</Link>
-              </div>
-              <ActionButton className="btn r full" confirm={{ title: "রিফান্ড বা সমন্বয় শুরু করবেন?", message: "মূল বিক্রি মুছবে না — আলাদা সমন্বয় লেনদেন যোগ হবে এবং অডিট লগে থাকবে।", label: "শুরু করুন", danger: true }}>
-                অনুমোদিত রিফান্ড / সমন্বয়
-              </ActionButton>
+              <div className="sh"><h2 className="h2">রসিদ {sel.receipt_no}</h2>{statusChip(sel)}</div>
+              <div className="mu">{bnDateTime(sel.created_at)} · {sel.seller_name}</div>
+              <KV label="পণ্য">{sel.product_name}</KV>
+              <KV label="পরিমাণ × দাম">{bnDigits(sel.quantity)} × {money(sel.unit_price)}</KV>
+              <KV label="মোট বিক্রি">{money(sel.total)}</KV>
+              <KV label="ক্রয়মূল্য (বিক্রির সময়ের)">{money(sel.cost_total ?? 0)}</KV>
+              <KV label="মোট লাভ"><span style={{ color: "#0F6A38" }}>{money(sel.gross_profit ?? 0)}</span></KV>
+              <KV label="সেলারের আয়">{money(sel.commission ?? 0)}</KV>
+              <KV label="পেমেন্ট">{sel.payment_label}</KV>
+              <KV label="টাকা গেছে">{sel.money_destination === "seller_cash" ? "সেলারের হাতে (জমা দিতে হবে)" : "ব্যবসার অ্যাকাউন্টে"}</KV>
+              {sel.note ? <KV label="নোট">{sel.note}</KV> : null}
+              {sel.corrected && sel.original ? (
+                <Note kind="warn">সংশোধিত বিক্রি। মূল: {bnDigits(sel.original.qty)} × {money(sel.original.unit_price)} · {PAYMENT_LABELS[sel.original.payment] ?? sel.original.payment}</Note>
+              ) : null}
+              {sel.money_destination !== "seller_cash" ? <Note>বিকাশ/নগদে সরাসরি ব্যবসায় আসা টাকা সেলারের বাকি ক্যাশে যোগ হয় না।</Note> : null}
+              {sel.corrections?.length ? (
+                <div>
+                  <div className="mu" style={{ marginBottom: 4 }}>সংশোধনের অনুরোধ</div>
+                  {sel.corrections.map((c) => (
+                    <div key={c.id} className="tl"><i style={{ background: c.status === "approved" ? "#168447" : c.status === "rejected" ? "#A92F2F" : "#E6A23C" }} /><div><div className="t1">{c.reason}</div><div className="mu">{bnDateTime(c.created_at)} · {c.status === "approved" ? "অনুমোদিত" : c.status === "rejected" ? "বাতিল" : "অপেক্ষমাণ"}</div></div></div>
+                  ))}
+                  <Link className="btn g sm" href="/corrections">সংশোধনের পেজে যান</Link>
+                </div>
+              ) : null}
             </section>
           </div>
         ) : null}

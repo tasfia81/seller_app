@@ -17,6 +17,11 @@ export interface ApiSale {
   status_label: string;
   created_at: string;
   corrected: boolean;
+  note?: string | null;
+  money_destination?: "seller_cash" | "business_account";
+  unit_cost_snapshot?: number;
+  original?: { qty: number; unit_price: number; payment: string };
+  corrections?: ApiCorrection[];
   gross_profit?: number;
   commission?: number;
   cost_total?: number;
@@ -206,3 +211,29 @@ export interface ApiMovement {
   by: string;
   at: string;
 }
+
+export interface ApiSalesList {
+  from: string;
+  to: string;
+  summary: { count: number; total: number; quantity: number; gross_profit?: number; seller_earnings?: number };
+  items: ApiSale[];
+}
+
+export type ApiCorrectionStatus = "pending" | "clarification" | "approved" | "rejected";
+
+export interface ApiCorrection {
+  id: string;
+  sale_id: string;
+  receipt_no: string;
+  seller_id: string;
+  seller_name: string;
+  current: { qty: number; unit_price: number; payment: string };
+  requested: { qty?: number; unit_price?: number; payment?: string };
+  reason: string;
+  status: ApiCorrectionStatus;
+  admin_note: string | null;
+  decided_by?: string;
+  decided_at?: string;
+  created_at: string;
+}
+
