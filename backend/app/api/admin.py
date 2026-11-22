@@ -25,6 +25,12 @@ def dashboard(admin: AdminDep, store: StoreDep, period: Period = "today"):
         return reports.admin_dashboard(tx, period)
 
 
+@router.get("/nav-counts", summary="মেনুর ব্যাজ: কোথায় কতটি কাজ বাকি")
+def nav_counts(admin: AdminDep, store: StoreDep):
+    with store.transaction() as tx:
+        return reports.nav_counts(tx)
+
+
 @router.get("/reports/financial", summary="আর্থিক সারাংশ")
 def financial(admin: AdminDep, store: StoreDep, period: Period = "month", date_from: date | None = None, date_to: date | None = None):
     d1, d2 = period_range(period, date_from, date_to)

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { NavCount } from "@/components/shell/NavCount";
 import { Topbar } from "@/components/shell/Topbar";
 import { Icon } from "@/components/ui/Icon";
 import { sidebar } from "@/lib/nav";
@@ -23,7 +25,7 @@ export default function MorePage() {
                   <Link key={i.href} className="mi" href={i.href}>
                     <span className="ic" style={{ background: "#E3F3EA", color: "#168447", width: 36, height: 36 }}><Icon name={i.icon} size={18} /></span>
                     <span className="fx">{i.label}</span>
-                    {i.badge ? <span className="ch wa">{i.badge}</span> : <Icon name="chev" size={18} color="#8A968F" />}
+                    <Suspense fallback={<Icon name="chev" size={18} color="#8A968F" />}><NavCount href={i.href} /></Suspense>
                   </Link>
                 ))}
               </div>

@@ -4,18 +4,17 @@ export interface NavItem {
   href: string;
   label: string;
   icon: IconName;
-  badge?: string;
 }
 
-/** Full sidebar menu (desktop). Only the dashboard is built in this phase. */
+/** Full sidebar menu (desktop). Badge counts come live from /api/nav-counts. */
 export const sidebar: { title: string; items: NavItem[] }[] = [
   { title: "প্রধান", items: [
     { href: "/dashboard", label: "ড্যাশবোর্ড", icon: "dash" },
     { href: "/sales", label: "বিক্রি", icon: "receipt" },
-    { href: "/corrections", label: "সংশোধনের অনুরোধ", icon: "edit", badge: "২" },
+    { href: "/corrections", label: "সংশোধনের অনুরোধ", icon: "edit" },
   ] },
   { title: "সেলার", items: [
-    { href: "/applications", label: "সেলার আবেদন", icon: "doc", badge: "৪" },
+    { href: "/applications", label: "সেলার আবেদন", icon: "doc" },
     { href: "/sellers", label: "সেলার", icon: "users" },
     { href: "/compensation", label: "কমিশন ও আয়", icon: "trend" },
   ] },
@@ -23,19 +22,19 @@ export const sidebar: { title: string; items: NavItem[] }[] = [
     { href: "/products", label: "পণ্য ও ক্যাটাগরি", icon: "tag" },
     { href: "/inventory", label: "মূল স্টক", icon: "box" },
     { href: "/assignments", label: "স্টক বরাদ্দ", icon: "truck" },
-    { href: "/returns", label: "ফেরত ও ক্ষতি", icon: "ret", badge: "৩" },
+    { href: "/returns", label: "ফেরত ও ক্ষতি", icon: "ret" },
   ] },
   { title: "টাকা", items: [
-    { href: "/cash", label: "ক্যাশ জমা", icon: "cash", badge: "৬" },
+    { href: "/cash", label: "ক্যাশ জমা", icon: "cash" },
     { href: "/payouts", label: "সেলার পেমেন্ট", icon: "wallet" },
     { href: "/settlements", label: "দিনের হিসাব", icon: "cal" },
     { href: "/expenses", label: "খরচ", icon: "chart" },
   ] },
   { title: "বিনিয়োগকারী", items: [
-    { href: "/investors", label: "বিনিয়োগকারী", icon: "shield", badge: "৩" },
+    { href: "/investors", label: "বিনিয়োগকারী", icon: "shield" },
     { href: "/investments", label: "বিনিয়োগ ও পুঁজি", icon: "wallet" },
     { href: "/investor-profit", label: "লাভ বিতরণ", icon: "trend" },
-    { href: "/investor-withdrawals", label: "মূলধন ফেরত", icon: "ret", badge: "২" },
+    { href: "/investor-withdrawals", label: "মূলধন ফেরত", icon: "ret" },
   ] },
   { title: "বিশ্লেষণ", items: [
     { href: "/reports", label: "রিপোর্ট", icon: "trend" },

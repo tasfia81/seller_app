@@ -145,3 +145,20 @@ def seller_dashboard(tx: Tx, seller: dict[str, Any]) -> dict[str, Any]:
         "recent_sales": [sale_view(tx, s) for s in mine[:3]],
         "unread_notifications": sum(1 for n in tx.list(NOTIFICATIONS) if n["audience"] == f"seller:{seller['id']}" and not n["read"]),
     }
+
+
+def nav_counts(tx: Tx) -> dict[str, int]:
+    """Items waiting for an admin, keyed by panel route (sidebar badges)."""
+    from .common import INV_APPS, INV_WITHDRAWALS
+    pending_settlements = [r for r in list_for_date(tx, today() - timedelta(days=1), None) + list_for_date(tx, today(), None)
+                           if r["status"] in ("submitted", "review", "discrepancy")]
+    return {
+        "/corrections": sum(1 for c in tx.list(CORRECTIONS) if c["status"] in ("pending", "clarification")),
+        "/applications": sum(1 for a in tx.list("applications") if a["status"] in ("submitted", "under_review")),
+        "/returns": sum(1 for r in tx.list(RETURNS) if r["status"] in ("pending", "approved")),
+        "/cash": sum(1 for h in tx.list(HANDOVERS) if h["status"] == "pending"),
+        "/settlements": len(pending_settlements),
+        "/investors": sum(1 for a in tx.list(INV_APPS) if a["status"] in ("submitted", "under_review")),
+        "/investor-withdrawals": sum(1 for w in tx.list(INV_WITHDRAWALS) if w["status"] == "pending"),
+        "/activity": sum(1 for n in tx.list(NOTIFICATIONS) if n["audience"] == "admin" and not n["read"]),
+    }

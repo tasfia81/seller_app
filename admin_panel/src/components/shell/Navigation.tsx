@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
+import { bnDigits } from "@/lib/format";
 import { bottomNav, sidebar } from "@/lib/nav";
+import { useNavCounts } from "./useNavCounts";
 
 const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 export function Sidebar({ footer }: { footer?: React.ReactNode }) {
   const pathname = usePathname();
+  const counts = useNavCounts();
   return (
     <nav className="sb" aria-label="অ্যাডমিন মেনু">
       <div className="sb-brand">
@@ -32,7 +35,7 @@ export function Sidebar({ footer }: { footer?: React.ReactNode }) {
             >
               <Icon name={item.icon} size={18} />
               <span>{item.label}</span>
-              {item.badge ? <span className="sb-badge">{item.badge}</span> : null}
+              {counts[item.href] ? <span className="sb-badge">{bnDigits(counts[item.href] > 99 ? "99+" : counts[item.href])}</span> : null}
             </Link>
           ))}
         </div>
