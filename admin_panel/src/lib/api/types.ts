@@ -158,3 +158,33 @@ export interface ApiProduct {
   stock: { warehouse: number; reserved: number; damaged: number; with_sellers: number };
   stock_status: "ok" | "low_stock" | "out_of_stock";
 }
+
+export interface ApiInventory {
+  totals: { warehouse: number; with_sellers: number; reserved: number; damaged: number; total: number; low_stock_products: number };
+  products: {
+    product_id: string;
+    name: string;
+    unit_label: string;
+    warehouse: number;
+    with_sellers: number;
+    reserved: number;
+    damaged: number;
+    stock_value: number;
+    low: boolean;
+    by_variant: { variant: string | null; warehouse: number; reserved: number }[];
+  }[];
+}
+
+export interface ApiMovement {
+  id: string;
+  kind: "receipt" | "assignment" | "sale" | "return" | "damage" | "transfer_out" | "adjustment";
+  product_id: string;
+  product_name: string;
+  variant: string | null;
+  qty: number;
+  source: string;
+  destination: string;
+  ref: string;
+  by: string;
+  at: string;
+}
