@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { NavCount } from "@/components/shell/NavCount";
 import { Topbar } from "@/components/shell/Topbar";
 import { Icon } from "@/components/ui/Icon";
-import { sidebar } from "@/lib/nav";
+import { sidebar, sidebarBottom } from "@/lib/nav";
 
 export const metadata = { title: "আরও" };
 
@@ -14,11 +14,11 @@ export default function MorePage() {
     <>
       <Topbar title="আরও" />
       <main className="ct">
-        {sidebar.map((g) => {
+        {[...sidebar, { id: "other", title: "আরও", icon: "grid" as const, items: sidebarBottom }].map((g) => {
           const items = g.items.filter((i) => !inBottom.has(i.href));
           if (!items.length) return null;
           return (
-            <div key={g.title}>
+            <div key={g.id}>
               <div className="mu" style={{ fontWeight: 600, padding: "2px 4px 6px" }}>{g.title}</div>
               <div className="mg">
                 {items.map((i) => (

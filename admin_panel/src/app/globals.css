@@ -49,6 +49,28 @@ button { cursor: pointer; font-family: inherit; }
 .sb-link:hover { background: #135240; color: #fff; }
 .sb-link.on { background: var(--green); color: #fff; font-weight: 600; }
 .sb-badge { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--warn); color: #2b1c02; font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.sb-search { position: relative; display: flex; align-items: center; gap: 8px; margin: 0 2px 10px; padding: 0 10px; height: 36px; border-radius: 9px; background: #0f4a38; color: #8db9a0; }
+.sb-search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: #fff; font: inherit; font-size: 13px; outline: none; }
+.sb-search input::placeholder { color: #8db9a0; }
+.sb-search:focus-within { box-shadow: 0 0 0 2px #2f9e64; }
+.sb-list { display: flex; flex-direction: column; gap: 2px; }
+.sb-empty { padding: 10px; font-size: 13px; color: #8db9a0; }
+.sb-sep { height: 1px; background: #1f5641; margin: 8px 6px; }
+.sb-gh { display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: #c9e0d3; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-align: left; }
+.sb-gh:hover { background: #135240; color: #fff; }
+.sb-gh:focus-visible, .sb-link:focus-visible { outline: 2px solid #7fd4a3; outline-offset: -2px; }
+.sb-gh.here { color: #fff; }
+.sb-gh > span:first-of-type { flex: 1; }
+.sb-gh .sb-badge { margin-left: 0; }
+.sb-chev { display: flex; transition: transform .2s ease; opacity: .8; }
+.sb-cat.open .sb-chev { transform: rotate(90deg); }
+.sb-gbody { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .22s ease; }
+.sb-gbody > div { overflow: hidden; display: flex; flex-direction: column; gap: 2px; }
+.sb-cat.open .sb-gbody { grid-template-rows: 1fr; }
+.sb-cat.open .sb-gbody > div { padding: 2px 0 6px; }
+.sb-link.sub { height: 36px; padding-left: 20px; margin-left: 10px; border-left: 1px solid #1f5641; border-radius: 0 9px 9px 0; font-size: 13px; }
+.sb-link.sub.on { border-left-color: var(--green); }
+@media (prefers-reduced-motion: reduce) { .sb-gbody, .sb-chev { transition: none; } }
 .sb-user { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 14px 8px 0; border-top: 1px solid #1f5641; }
 
 /* Bottom nav (mobile) */

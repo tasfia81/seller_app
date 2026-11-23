@@ -275,3 +275,29 @@ export interface ApiPayoutsOverview {
 
 export interface ApiExpense { id: string; category: string; amount: number; date: string; description: string; seller_id: string | null; product_id: string | null; recorded_by: string; at: string }
 export interface ApiExpenseList { total: number; by_category: Record<string, number>; items: ApiExpense[] }
+
+export interface ApiSupportThread {
+  id: string;
+  topic: string;
+  topic_label: string;
+  status: "open" | "resolved";
+  status_label: string;
+  created_at: string;
+  updated_at: string;
+  last_message: string;
+  last_from: "user" | "admin";
+  unread: number;
+  owner_kind: "seller" | "investor";
+  owner_name: string;
+  owner_mobile: string | null;
+  seller_id: string | null;
+  investor_id: string | null;
+  is_applicant: boolean;
+}
+
+export interface ApiSupportMessage { id: string; sender: "user" | "admin"; author: string; text: string; at: string }
+
+export interface ApiSupportInbox {
+  counts: { open: number; waiting: number; resolved: number };
+  items: ApiSupportThread[];
+}
