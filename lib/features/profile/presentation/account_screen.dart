@@ -72,6 +72,7 @@ class AccountScreen extends ConsumerWidget {
                   trailing: StatusChip(p.isVerified ? 'যাচাইকৃত' : 'যাচাই বাকি',
                       tone: p.isVerified ? ChipTone.success : ChipTone.warning),
                   onTap: () => context.push(AppRoutes.applicationStatus)),
+              MenuEntry(Icons.support_agent_rounded, 'সাপোর্ট চ্যাট — অফিসকে লিখুন', onTap: () => context.push(AppRoutes.support)),
               MenuEntry(Icons.settings_outlined, 'সেটিংস ও সাহায্য', onTap: () => context.push(AppRoutes.settings)),
               MenuEntry(Icons.logout_rounded, 'লগআউট', danger: true, onTap: () => _logout(context, ref)),
             ]),

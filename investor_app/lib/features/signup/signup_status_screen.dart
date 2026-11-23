@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app/router/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
 import '../../core/api/api_client.dart';
@@ -123,17 +125,17 @@ class _StatusView extends ConsumerWidget {
         ),
         SizedBox(height: 12.h),
         AppCard(
-          onTap: () => showDemoNotice(context, 'হেল্পলাইন নম্বর এখনো বসানো হয়নি: ${AppConfig.helpline}'),
+          onTap: () => context.push(AppRoutes.support),
           child: Row(
             children: [
-              const IconBox(icon: Icons.call_outlined),
+              const IconBox(icon: Icons.support_agent_rounded),
               SizedBox(width: 12.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('কোনো প্রশ্ন আছে?', style: AppText.bodyStrong),
-                    Text('হেল্পলাইন ${AppConfig.helpline} · সকাল ১০টা–সন্ধ্যা ৬টা', style: AppText.caption),
+                    Text('কোনো প্রশ্ন আছে? অফিসকে লিখুন', style: AppText.bodyStrong),
+                    Text('সাপোর্ট চ্যাট · হেল্পলাইন ${AppConfig.helpline}', style: AppText.caption),
                   ],
                 ),
               ),

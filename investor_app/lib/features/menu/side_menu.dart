@@ -37,7 +37,7 @@ class SideMenu extends ConsumerWidget {
       _MenuItem(Icons.bar_chart_rounded, 'মাসিক রিপোর্ট', () => then(() => context.go(AppRoutes.report))),
       _MenuItem(Icons.description_outlined, 'আমার চুক্তিপত্র', () => then(() => showAgreementSheet(context))),
       _MenuItem(Icons.person_outline_rounded, 'প্রোফাইল ও নমিনি', () => then(() => context.push(AppRoutes.profile))),
-      _MenuItem(Icons.help_outline_rounded, 'সাহায্য ও হেল্পলাইন', () => then(() => showHelpSheet(context))),
+      _MenuItem(Icons.support_agent_rounded, 'সাপোর্ট চ্যাট ও সাহায্য', () => then(() => context.push(AppRoutes.support))),
     ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(

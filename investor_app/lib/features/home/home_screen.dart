@@ -193,6 +193,13 @@ class _QuickActions extends StatelessWidget {
             pill: Pill(bn(summary.unreadUpdates), background: AppColors.dangerSoft, color: AppColors.danger),
             onTap: () => context.push(AppRoutes.notifications),
           ),
+          SizedBox(height: 8.h),
+          _QuickRow(
+            icon: Icons.support_agent_rounded,
+            text: 'কোনো প্রশ্ন? সাপোর্টে লিখুন',
+            pill: const Pill('চ্যাট'),
+            onTap: () => context.push(AppRoutes.support),
+          ),
         ],
       ),
     );

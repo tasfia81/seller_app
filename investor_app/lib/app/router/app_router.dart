@@ -21,6 +21,8 @@ import '../../features/signup/signup_kyc_screen.dart';
 import '../../features/signup/signup_mobile_screen.dart';
 import '../../features/signup/signup_payout_screen.dart';
 import '../../features/signup/signup_status_screen.dart';
+import '../../features/support/support_chat_screen.dart';
+import '../../features/support/support_home_screen.dart';
 import '../../features/withdraw/withdraw_screen.dart';
 import 'app_routes.dart';
 import 'main_shell.dart';
@@ -93,6 +95,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(parentNavigatorKey: _rootKey, path: AppRoutes.withdraw, builder: (_, __) => const WithdrawScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),
       GoRoute(parentNavigatorKey: _rootKey, path: AppRoutes.profile, builder: (_, __) => const ProfileScreen()),
+      GoRoute(parentNavigatorKey: _rootKey, path: AppRoutes.support, builder: (_, __) => const SupportHomeScreen()),
+      GoRoute(
+        parentNavigatorKey: _rootKey,
+        path: AppRoutes.supportChat,
+        builder: (_, s) => SupportChatScreen(
+          threadId: s.uri.queryParameters['id'],
+          topic: s.uri.queryParameters['topic'],
+          topicLabel: s.uri.queryParameters['label'],
+        ),
+      ),
     ],
   );
 });

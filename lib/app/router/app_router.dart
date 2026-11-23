@@ -26,6 +26,8 @@ import '../../features/sales/presentation/sale_success_screen.dart';
 import '../../features/sales/presentation/sales_history_screen.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 import '../../features/stock_returns/presentation/stock_return_screen.dart';
+import '../../features/support/presentation/support_chat_screen.dart';
+import '../../features/support/presentation/support_home_screen.dart';
 import '../../shared/models/sale.dart';
 import 'app_routes.dart';
 import 'main_shell.dart';
@@ -101,6 +103,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: AppRoutes.notifications, builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: AppRoutes.profile, builder: (_, __) => const ProfileScreen()),
       GoRoute(path: AppRoutes.settings, builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: AppRoutes.support, builder: (_, __) => const SupportHomeScreen()),
+      GoRoute(
+        path: AppRoutes.supportChat,
+        builder: (_, s) => SupportChatScreen(
+          threadId: s.uri.queryParameters['id'],
+          topic: s.uri.queryParameters['topic'],
+          topicLabel: s.uri.queryParameters['label'],
+        ),
+      ),
     ],
   );
 });

@@ -28,8 +28,13 @@ abstract final class AppRoutes {
   static const notifications = '/notifications';
   static const profile = '/profile';
   static const settings = '/settings';
+  static const support = '/support';
+  static const supportChat = '/support/chat';
 
   static String product(String id) => '/product/$id';
+  static String supportThread(String id) => '$supportChat?id=${Uri.encodeQueryComponent(id)}';
+  static String supportNew(String topic, String label) =>
+      '$supportChat?topic=${Uri.encodeQueryComponent(topic)}&label=${Uri.encodeQueryComponent(label)}';
   static String saleDetail(String id) => '/sale-details/$id';
   static String newSale({String? productId}) =>
       productId == null ? quickSale : '$quickSale?productId=$productId';

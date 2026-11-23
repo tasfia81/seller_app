@@ -9,7 +9,6 @@ build/
 coverage/
 *.iml
 .idea/
-.vscode/
 .metadata
 
 # Android
@@ -25,3 +24,5 @@ android/app/release/
 # OS
 .DS_Store
 Thumbs.db
+config.bat
+node_modules
