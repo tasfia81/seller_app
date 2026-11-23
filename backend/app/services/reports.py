@@ -150,6 +150,7 @@ def seller_dashboard(tx: Tx, seller: dict[str, Any]) -> dict[str, Any]:
 def nav_counts(tx: Tx) -> dict[str, int]:
     """Items waiting for an admin, keyed by panel route (sidebar badges)."""
     from .common import INV_APPS, INV_WITHDRAWALS
+    from .support import waiting_count
     pending_settlements = [r for r in list_for_date(tx, today() - timedelta(days=1), None) + list_for_date(tx, today(), None)
                            if r["status"] in ("submitted", "review", "discrepancy")]
     return {
@@ -161,4 +162,5 @@ def nav_counts(tx: Tx) -> dict[str, int]:
         "/investors": sum(1 for a in tx.list(INV_APPS) if a["status"] in ("submitted", "under_review")),
         "/investor-withdrawals": sum(1 for w in tx.list(INV_WITHDRAWALS) if w["status"] == "pending"),
         "/activity": sum(1 for n in tx.list(NOTIFICATIONS) if n["audience"] == "admin" and not n["read"]),
+        "/support": waiting_count(tx),
     }

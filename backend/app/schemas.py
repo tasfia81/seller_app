@@ -304,3 +304,15 @@ class MessageIn(In):
     title: str = Field(min_length=2, max_length=80)
     body: str = Field(min_length=2, max_length=1000)
     client_request_id: str = Field(min_length=8, max_length=64)
+
+
+# ---------- support chat ----------
+class SupportStartIn(In):
+    topic: str
+    text: str = Field(min_length=1, max_length=2000)
+    client_request_id: str = Field(min_length=8, max_length=80, description="Idempotency key")
+
+
+class SupportMessageIn(In):
+    text: str = Field(min_length=1, max_length=2000)
+    client_request_id: str = Field(min_length=8, max_length=80, description="Idempotency key")

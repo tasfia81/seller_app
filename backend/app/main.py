@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .api import admin, admin_investors, auth, investor, seller
+from .api import admin, admin_investors, auth, investor, seller, support
 from .core.config import settings
 from .core.errors import register_error_handlers
 from .storage import get_store
@@ -50,6 +50,8 @@ app.include_router(seller.router, prefix=API)
 app.include_router(admin.router, prefix=API)
 app.include_router(admin_investors.router, prefix=API)
 app.include_router(investor.router, prefix=API)
+app.include_router(support.router, prefix=API)
+app.include_router(support.admin_router, prefix=API)
 
 
 @app.get("/health", tags=["সিস্টেম"])
