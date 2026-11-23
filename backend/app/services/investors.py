@@ -99,6 +99,11 @@ def open_withdrawal(tx: Tx, investor_id: str) -> dict[str, Any] | None:
 
 
 # ---------------------------------------------------------------- applications (KYC)
+def mobile_available(tx: Tx, mobile: str) -> dict[str, Any]:
+    """Lets the sign-up form stop early instead of failing after five steps."""
+    return {"available": tx.first(USERS, lambda u: u.get("mobile") == mobile) is None}
+
+
 def submit_application(tx: Tx, data: InvestorApplicationIn) -> dict[str, Any]:
     if not (data.accepted_risk and data.accepted_terms):
         raise AppError("ঝুঁকি ও চুক্তির শর্ত মেনে নিতে হবে।", code="consent_required")
@@ -220,9 +225,9 @@ def reject_application(tx: Tx, admin: dict[str, Any], app_id: str, reason: str) 
     app = _transition(tx, admin, app_id, ("submitted", "under_review", "more_info"), "rejected", "বাতিল")
     app["rejection_reason"] = reason
     tx.put(INV_APPS, app)
+    # The applicant can still sign in, but only to read the decision and reason (investor endpoints need investor_id).
     user = require(tx, USERS, app["user_id"])
-    user["status"] = "disabled"
-    user["session_version"] = user.get("session_version", 0) + 1
+    user["status"] = "rejected"
     tx.put(USERS, user)
     audit(tx, admin, "investor_application.rejected", app_id, f"কারণ: {reason}")
     return application_view(app, private=True)

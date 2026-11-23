@@ -6,7 +6,7 @@ from fastapi import APIRouter, File, UploadFile
 
 from ..core.deps import InvestorDep, StoreDep, UserDep
 from ..core.errors import Forbidden
-from ..schemas_investor import InvestorApplicationIn, PreferenceIn, WithdrawalRequestIn
+from ..schemas_investor import InvestorApplicationIn, MobileCheckIn, PreferenceIn, WithdrawalRequestIn
 from ..services import auth, investors, system
 from .uploads import save_image
 
@@ -15,6 +15,12 @@ DocKind = Literal["nid_front", "nid_back", "selfie"]
 
 
 # ---------- onboarding ----------
+@router.post("/mobile-check", summary="এই নম্বরে আগে অ্যাকাউন্ট আছে কিনা")
+def mobile_check(body: MobileCheckIn, store: StoreDep):
+    with store.transaction() as tx:
+        return investors.mobile_available(tx, body.mobile)
+
+
 @router.post("/applications", status_code=201, summary="বিনিয়োগকারী হিসেবে আবেদন")
 def submit_application(body: InvestorApplicationIn, store: StoreDep):
     with store.transaction() as tx:

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../app/theme/app_colors.dart';
@@ -319,7 +320,8 @@ class FilterPills extends StatelessWidget {
   }
 }
 
-/// Label above an input, as in the design.
+/// Label above an input, as in the design. Pass [controller] / [onChanged] for
+/// real forms; [errorText] shows the problem in red under the field.
 class LabeledField extends StatelessWidget {
   const LabeledField({
     super.key,
@@ -331,6 +333,16 @@ class LabeledField extends StatelessWidget {
     this.helper,
     this.helperOk = false,
     this.prefix,
+    this.suffix,
+    this.controller,
+    this.onChanged,
+    this.errorText,
+    this.maxLength,
+    this.inputFormatters,
+    this.textInputAction,
+    this.autofillHints,
+    this.readOnly = false,
+    this.onTap,
   });
 
   final String label;
@@ -341,22 +353,46 @@ class LabeledField extends StatelessWidget {
   final String? helper;
   final bool helperOk;
   final Widget? prefix;
+  final Widget? suffix;
+  final TextEditingController? controller;
+  final ValueChanged<String>? onChanged;
+  final String? errorText;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppText.label),
-        SizedBox(height: 6.h),
+        if (label.isNotEmpty) ...[Text(label, style: AppText.label), SizedBox(height: 6.h)],
         TextFormField(
-          initialValue: initialValue,
+          controller: controller,
+          initialValue: controller == null ? initialValue : null,
           keyboardType: keyboardType,
           obscureText: obscure,
+          maxLength: maxLength,
+          inputFormatters: inputFormatters,
+          textInputAction: textInputAction ?? TextInputAction.next,
+          autofillHints: autofillHints,
+          readOnly: readOnly,
+          onTap: onTap,
+          onChanged: onChanged,
           style: AppText.body.copyWith(height: 1.3),
-          decoration: InputDecoration(hintText: hint, prefixIcon: prefix),
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: prefix,
+            suffixIcon: suffix,
+            counterText: '',
+            errorText: errorText,
+            errorMaxLines: 3,
+          ),
         ),
-        if (helper != null) ...[
+        if (helper != null && errorText == null) ...[
           SizedBox(height: 4.h),
           Text(helper!, style: AppText.small.copyWith(color: helperOk ? AppColors.primary : AppColors.textSecondary)),
         ],
@@ -365,36 +401,62 @@ class LabeledField extends StatelessWidget {
   }
 }
 
-/// Label above a dropdown.
+/// Label above a dropdown. Controlled when [onChanged] is given ([value] may be
+/// null until the user picks); otherwise it keeps its own selection.
 class LabeledDropdown extends StatefulWidget {
-  const LabeledDropdown({super.key, required this.label, required this.options, this.semanticLabel});
+  const LabeledDropdown({
+    super.key,
+    required this.label,
+    required this.options,
+    this.semanticLabel,
+    this.value,
+    this.onChanged,
+    this.hint,
+    this.errorText,
+  });
 
   final String label;
   final List<String> options;
   final String? semanticLabel;
+  final String? value;
+  final ValueChanged<String>? onChanged;
+  final String? hint;
+  final String? errorText;
 
   @override
   State<LabeledDropdown> createState() => _LabeledDropdownState();
 }
 
 class _LabeledDropdownState extends State<LabeledDropdown> {
-  late String _value = widget.options.first;
+  late String? _value = widget.onChanged == null ? widget.options.first : null;
 
   @override
   Widget build(BuildContext context) {
+    final controlled = widget.onChanged != null;
+    final current = controlled ? widget.value : _value;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label.isNotEmpty) ...[Text(widget.label, style: AppText.label), SizedBox(height: 6.h)],
         DropdownButtonFormField<String>(
-          value: _value,
+          // Rebuild when the option list changes (e.g. districts of a new division).
+          key: ValueKey('${widget.options.join('|')}#$current'),
+          value: widget.options.contains(current) ? current : null,
           isExpanded: true,
           style: AppText.body.copyWith(height: 1.3),
           borderRadius: BorderRadius.circular(12.r),
           dropdownColor: Colors.white,
-          decoration: InputDecoration(hintText: widget.semanticLabel),
+          hint: widget.hint == null ? null : Text(widget.hint!, style: AppText.body.copyWith(color: AppColors.textSecondary)),
+          decoration: InputDecoration(hintText: widget.semanticLabel, errorText: widget.errorText),
           items: [for (final o in widget.options) DropdownMenuItem(value: o, child: Text(o))],
-          onChanged: (v) => setState(() => _value = v ?? _value),
+          onChanged: (v) {
+            if (v == null) return;
+            if (controlled) {
+              widget.onChanged!(v);
+            } else {
+              setState(() => _value = v);
+            }
+          },
         ),
       ],
     );
@@ -436,7 +498,8 @@ class InfoBox extends StatelessWidget {
 
 enum InfoTone { good, warn, bad, plain }
 
-/// Honest message for actions that need the server (UI phase).
+/// Short message at the bottom of the screen (errors, results, honest
+/// "not available yet" notices).
 void showDemoNotice(BuildContext context, [String? message]) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

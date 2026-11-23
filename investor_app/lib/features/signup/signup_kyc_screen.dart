@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,21 +10,52 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/router/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
+import '../../core/utils/validators.dart';
 import '../../core/widgets/step_scaffold.dart';
 import '../../core/widgets/ui.dart';
+import 'signup_draft.dart';
 
-class SignupKycScreen extends StatefulWidget {
+class SignupKycScreen extends ConsumerStatefulWidget {
   const SignupKycScreen({super.key});
 
   @override
-  State<SignupKycScreen> createState() => _SignupKycScreenState();
+  ConsumerState<SignupKycScreen> createState() => _SignupKycScreenState();
 }
 
-class _SignupKycScreenState extends State<SignupKycScreen> {
+class _SignupKycScreenState extends ConsumerState<SignupKycScreen> {
   final _picker = ImagePicker();
-  Uint8List? _front;
-  Uint8List? _back;
-  Uint8List? _selfie;
+  late final SignupDraft _d = ref.read(signupDraftProvider);
+  late final _nid = TextEditingController(text: _d.nid);
+  late Uint8List? _front = _d.nidFront;
+  late Uint8List? _back = _d.nidBack;
+  late Uint8List? _selfie = _d.selfie;
+  String? _nidError;
+  bool _photoError = false;
+
+  @override
+  void dispose() {
+    _nid.dispose();
+    super.dispose();
+  }
+
+  void _next() {
+    final nid = Validators.nid(_nid.text);
+    final photosOk = _front != null && _back != null && _selfie != null;
+    setState(() {
+      _nidError = nid == null ? '১০, ১৩ বা ১৭ সংখ্যার NID নম্বর দিন' : null;
+      _photoError = !photosOk;
+    });
+    if (nid == null || !photosOk) {
+      showDemoNotice(context, nid == null ? 'NID নম্বর ঠিক করুন।' : 'NID-এর দুই পাশ ও সেলফি — তিনটি ছবিই লাগবে।');
+      return;
+    }
+    _d
+      ..nid = nid
+      ..nidFront = _front
+      ..nidBack = _back
+      ..selfie = _selfie;
+    context.push(AppRoutes.signupPayout);
+  }
 
   /// Picks a compressed photo (keeps memory low and uploads fast later).
   Future<Uint8List?> _pick({bool selfie = false}) async {
@@ -47,9 +80,17 @@ class _SignupKycScreenState extends State<SignupKycScreen> {
       title: 'পরিচয় যাচাই',
       subtitle: 'আপনার টাকা যেন শুধু আপনার নামেই থাকে — তাই NID ও ছবি লাগে।',
       buttonLabel: 'পরের ধাপ',
-      onNext: () => context.push(AppRoutes.signupPayout),
+      onNext: _next,
       children: [
-        const LabeledField(label: 'NID নম্বর', hint: '১০, ১৩ বা ১৭ সংখ্যা', keyboardType: TextInputType.number),
+        LabeledField(
+          label: 'NID নম্বর',
+          hint: '১০, ১৩ বা ১৭ সংখ্যা',
+          controller: _nid,
+          keyboardType: TextInputType.number,
+          maxLength: 17,
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp('[0-9০-৯]'))],
+          errorText: _nidError,
+        ),
         SizedBox(height: 14.h),
         Row(
           children: [
@@ -84,6 +125,10 @@ class _SignupKycScreenState extends State<SignupKycScreen> {
             if (b != null) setState(() => _selfie = b);
           },
         ),
+        if (_photoError) ...[
+          SizedBox(height: 8.h),
+          const InfoBox(tone: InfoTone.bad, icon: Icons.error_outline_rounded, text: 'তিনটি ছবিই তুলুন — NID-এর সামনে, পেছনে ও সেলফি।'),
+        ],
         SizedBox(height: 14.h),
         AppCard(
           child: Column(

@@ -29,6 +29,15 @@ class NomineeIn(In):
         return _mobile(v)
 
 
+class MobileCheckIn(In):
+    mobile: str
+
+    @field_validator("mobile")
+    @classmethod
+    def check_mobile(cls, v: str) -> str:
+        return _mobile(v)
+
+
 class InvestorApplicationIn(In):
     full_name: str = Field(min_length=2, max_length=80)
     mobile: str

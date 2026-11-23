@@ -82,8 +82,7 @@ class WelcomeScreen extends StatelessWidget {
                           foregroundColor: Colors.white,
                           side: const BorderSide(color: Color(0x59FFFFFF)),
                         ),
-                        // UI phase: login goes straight to the dashboard (demo data).
-                        onPressed: () => context.go(AppRoutes.home),
+                        onPressed: () => context.push(AppRoutes.login),
                         child: const Text('আমার অ্যাকাউন্ট আছে — লগইন'),
                       ),
                       SizedBox(height: 12.h),

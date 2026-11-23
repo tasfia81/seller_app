@@ -2,6 +2,7 @@ abstract final class AppRoutes {
   static const splash = '/';
   static const intro = '/intro';
   static const welcome = '/welcome';
+  static const login = '/login';
 
   static const signupMobile = '/signup/mobile';
   static const signupInfo = '/signup/info';
@@ -23,4 +24,11 @@ abstract final class AppRoutes {
   static const withdraw = '/withdraw';
   static const notifications = '/notifications';
   static const profile = '/profile';
+
+  /// Open to everyone who is not signed in.
+  static const public = {splash, intro, welcome, login, signupMobile, signupInfo, signupKyc, signupPayout, signupAgreement};
+
+  /// What a signed-in applicant (not yet approved) may see. The agreement step
+  /// stays open so photo uploads can finish after the application is created.
+  static const applicant = {signupAgreement, signupStatus};
 }

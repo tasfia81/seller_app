@@ -187,3 +187,25 @@ def test_admin_messages_reach_sellers_and_investors(client, admin, rakib, nusrat
                                                                    "client_request_id": "msg-test-0003"})
     assert bad.json()["error"]["code"] == "unknown_recipients"
     assert client.get(f"{API}/admin/messages", headers=admin).json()[0]["title"] == "রিপোর্ট প্রস্তুত"
+
+
+def test_mobile_check_and_rejected_applicant_can_read_reason(client, admin):
+    assert client.post(f"{API}/investor/mobile-check", json={"mobile": "01913000000"}).json() == {"available": False}
+    assert client.post(f"{API}/investor/mobile-check", json={"mobile": "01718000777"}).json() == {"available": True}
+    assert client.post(f"{API}/investor/mobile-check", json={"mobile": "123"}).status_code == 422
+    body = {
+        "full_name": "রহিম উদ্দিন", "mobile": "01718000777", "date_of_birth": "1990-02-02", "occupation": "ব্যবসায়ী", "funds_source": "ব্যবসার আয়",
+        "address": {"division": "ঢাকা", "district": "ঢাকা", "upazila": "মিরপুর", "detail": "বাড়ি ২"}, "nid_number": "1234509877",
+        "proposed_amount": 50000, "payout": {"method": "bkash", "account_name": "রহিম উদ্দিন", "account_number": "01718000777"},
+        "nominee": {"name": "করিম", "relation": "ভাই", "mobile": "01819000333"}, "password": "pass12345", "accepted_risk": True, "accepted_terms": True,
+    }
+    app_id = client.post(f"{API}/investor/applications", json=body).json()["application_id"]
+    r = client.post(f"{API}/admin/investor-applications/{app_id}/reject", headers=admin, json={"reason": "তথ্য মেলেনি"})
+    assert r.status_code == 200, r.text
+    login = client.post(f"{API}/auth/login", json={"identifier": "01718000777", "password": "pass12345"})
+    assert login.status_code == 200 and login.json()["user"]["status"] == "rejected"
+    h = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    mine = client.get(f"{API}/investor/application", headers=h).json()
+    assert mine["status"] == "rejected" and mine["rejection_reason"] == "তথ্য মেলেনি"
+    assert client.get(f"{API}/investor/dashboard", headers=h).json()["error"]["code"] == "application_pending"
+    assert client.post(f"{API}/investor/application/documents/selfie", headers=h, files={"file": ("s.png", PNG, "image/png")}).status_code == 403

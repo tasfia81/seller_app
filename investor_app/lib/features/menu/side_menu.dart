@@ -9,6 +9,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
 import '../../core/utils/bn_format.dart';
 import '../../core/widgets/ui.dart';
+import '../../data/auth/auth_controller.dart';
 import '../../data/investor_repository.dart';
 import '../common/sheets.dart';
 
@@ -110,7 +111,7 @@ class SideMenu extends ConsumerWidget {
                     SizedBox(
                       width: size.width * 0.56,
                       child: _MenuTile(
-                        item: _MenuItem(Icons.logout_rounded, 'লগআউট', () => _confirmLogout(context, onClose)),
+                        item: _MenuItem(Icons.logout_rounded, 'লগআউট', () => _confirmLogout(context, ref, onClose)),
                       ),
                     ),
                   ],
@@ -123,7 +124,7 @@ class SideMenu extends ConsumerWidget {
     );
   }
 
-  static Future<void> _confirmLogout(BuildContext context, VoidCallback onClose) async {
+  static Future<void> _confirmLogout(BuildContext context, WidgetRef ref, VoidCallback onClose) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -137,7 +138,8 @@ class SideMenu extends ConsumerWidget {
     );
     if (ok == true && context.mounted) {
       onClose();
-      context.go(AppRoutes.welcome);
+      // Clears the saved session; the router then shows the welcome screen.
+      await ref.read(authControllerProvider.notifier).logout();
     }
   }
 }

@@ -7,7 +7,7 @@ from ..services import auth
 router = APIRouter(prefix="/auth", tags=["লগইন (Auth)"])
 
 
-@router.post("/login", summary="অ্যাডমিন বা সেলার লগইন")
+@router.post("/login", summary="অ্যাডমিন, সেলার বা বিনিয়োগকারী লগইন")
 def login(body: LoginIn, store: StoreDep):
     with store.transaction() as tx:
         return auth.login(tx, body.identifier, body.password)
