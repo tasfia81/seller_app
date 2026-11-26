@@ -1,3 +1,5 @@
+import '../../../core/constants/app_config.dart';
+import '../../auth/data/auth_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -31,7 +33,10 @@ class ApplicationStatusScreen extends ConsumerWidget {
         leading: IconButton(
           tooltip: 'বন্ধ করুন',
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.go(AppRoutes.welcome),
+          onPressed: () async {
+            await ref.read(authRepositoryProvider).logout();
+            if (context.mounted) context.go(AppRoutes.welcome);
+          },
         ),
       ),
       body: AsyncValueView(
@@ -56,7 +61,24 @@ class ApplicationStatusScreen extends ConsumerWidget {
               ),
               if (info.status == ApplicationStatus.moreInfoRequired && info.adminMessage != null) ...[
                 SizedBox(height: 12.h),
-                _ResubmitCard(message: info.adminMessage!),
+                Text(info.adminMessage!),
+                for (final field in info.requestedDocuments.where(_documentLabels.containsKey))
+                  _ResubmitCard(key: ValueKey(field), field: field),
+                if (!AppConfig.previewAuth)
+                  AppButton(label: 'আবার জমা দিন', onPressed: () async {
+                    final repository = ref.read(onboardingRepositoryProvider);
+                    if (repository is! ApiOnboardingRepository) return;
+                    try {
+                      await repository.resubmit();
+                      if (context.mounted) ref.invalidate(applicationStatusProvider);
+                    } catch (error) {
+                      if (context.mounted) showAppSnack(context, failureMessage(error), error: true);
+                    }
+                  }),
+              ],
+              if (info.status == ApplicationStatus.submitted) ...[
+                for (final field in info.missingDocuments.where(_documentLabels.containsKey))
+                  _ResubmitCard(key: ValueKey(field), field: field),
               ],
               if (info.status == ApplicationStatus.rejected) ...[
                 SizedBox(height: 12.h),
@@ -120,10 +142,14 @@ class _TimelineRow extends StatelessWidget {
   }
 }
 
-/// Resubmit only the document the admin asked for — not the whole form.
+const _documentLabels = {
+  'nid_front': 'পরিচয়পত্রের সামনের ছবি',
+  'nid_back': 'পরিচয়পত্রের পেছনের ছবি',
+  'photo': 'নিজের ছবি',
+};
 class _ResubmitCard extends ConsumerStatefulWidget {
-  const _ResubmitCard({required this.message});
-  final String message;
+  const _ResubmitCard({super.key, required this.field});
+  final String field;
 
   @override
   ConsumerState<_ResubmitCard> createState() => _ResubmitCardState();
@@ -137,7 +163,10 @@ class _ResubmitCardState extends ConsumerState<_ResubmitCard> {
   Future<void> _send() async {
     setState(() => _sending = true);
     try {
-      await ref.read(onboardingRepositoryProvider).resubmitDocument(field: 'nid_back', filePath: _file!.path);
+      final repository = ref.read(onboardingRepositoryProvider);
+      if (repository is ApiOnboardingRepository) {
+        await repository.uploadDocument(widget.field, _file!.path);
+      }
       if (mounted) setState(() => _sent = true);
     } catch (e) {
       if (mounted) showAppSnack(context, failureMessage(e), error: true);
@@ -152,22 +181,18 @@ class _ResubmitCardState extends ConsumerState<_ResubmitCard> {
       color: AppColors.warningSurface,
       borderColor: AppColors.warningBorder,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('অ্যাডমিনের বার্তা', style: AppText.bodyStrong),
-        SizedBox(height: 6.h),
-        Text(widget.message, style: AppText.body.copyWith(color: AppColors.textBody)),
-        SizedBox(height: 12.h),
         if (_sent)
-          const InfoBanner(text: 'ছবিটি পাঠানো হয়েছে। অ্যাডমিন আবার যাচাই করবেন।', icon: Icons.schedule_rounded)
+          const InfoBanner(text: 'ছবিটি আপলোড হয়েছে।', icon: Icons.schedule_rounded)
         else ...[
           ImageUploadCard(
-            title: 'পরিচয়পত্রের পেছনের ছবি',
+            title: _documentLabels[widget.field]!,
             icon: Icons.badge_outlined,
             file: _file,
             onPicked: (f) => setState(() => _file = f),
             onRemove: () => setState(() => _file = null),
           ),
           SizedBox(height: 10.h),
-          AppButton(label: 'ছবিটি আবার পাঠান', loading: _sending, onPressed: _file == null ? null : _send),
+          AppButton(label: 'ছবিটি পাঠান', loading: _sending, onPressed: _file == null ? null : _send),
         ],
       ]),
     );

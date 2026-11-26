@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/data/seller_session.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -8,14 +10,14 @@ import '../../../app/theme/app_colors.dart';
 import '../../../core/constants/app_config.dart';
 import '../../../shared/widgets/brand_logo.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
@@ -23,10 +25,23 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _route() async {
-    // TODO(session): read stored session/onboarding state and route to
-    // login, application status or home. For now: first-launch intro.
     await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (mounted) context.go(AppRoutes.intro);
+    if (!mounted) return;
+    if (AppConfig.previewAuth) {
+      if (mounted) context.go(AppRoutes.intro);
+      return;
+    }
+    final session = ref.read(sellerSessionProvider);
+    try {
+      await session.restore();
+    } catch (_) {
+      if (mounted) context.go(AppRoutes.login);
+      return;
+    }
+    if (!mounted) return;
+    context.go(session.user == null
+        ? AppRoutes.intro
+        : session.active ? AppRoutes.home : AppRoutes.applicationStatus);
   }
 
   @override

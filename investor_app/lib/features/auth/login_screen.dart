@@ -8,7 +8,7 @@ import '../../app/router/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
 import '../../core/api/api_client.dart';
-import '../../core/constants/app_config.dart';
+import 'password_reset_dialog.dart';
 import '../../core/utils/validators.dart';
 import '../../core/widgets/ui.dart';
 import '../../data/auth/auth_controller.dart';
@@ -58,20 +58,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _forgot() {
-    showInfoSheet(
-      context,
-      title: 'পাসওয়ার্ড ভুলে গেছেন?',
-      children: [
-        Text(
-          'অ্যাপ থেকে পাসওয়ার্ড বদলানোর সুবিধা (SMS কোড) এখনো চালু হয়নি। নিজের নিবন্ধিত নম্বর থেকে হেল্পলাইনে ফোন করুন — পরিচয় যাচাই করে অফিস সাহায্য করবে।',
-          style: AppText.body,
-        ),
-        SizedBox(height: 8.h),
-        Text('হেল্পলাইন: ${AppConfig.helpline}', style: AppText.bodyStrong),
-        SizedBox(height: 16.h),
-        FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('ঠিক আছে')),
-      ],
-    );
+    showDialog<void>(context: context, builder: (_) => PasswordResetDialog(initialMobile: _mobile.text));
   }
 
   @override

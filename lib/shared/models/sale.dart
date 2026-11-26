@@ -11,11 +11,13 @@ class Sale {
     required this.payment,
     required this.time,
     required this.status,
+    this.receiptNo,
     this.variant,
     this.note,
   });
 
   final String id;
+  final String? receiptNo;
   final String productId;
   final String productName;
   final double quantity;

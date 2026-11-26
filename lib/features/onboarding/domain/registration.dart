@@ -29,11 +29,13 @@ class SellerApplication {
     required this.password,
     required this.acceptedPrivacy,
     required this.acceptedTerms,
+    this.otpCode,
     this.gender,
     this.email,
     this.guardianName,
   });
 
+  final String? otpCode;
   final String fullName;
   final String mobile;
   final DateTime dateOfBirth;

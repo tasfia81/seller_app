@@ -12,6 +12,8 @@ class Product {
     required this.availableQty,
     this.variantLabel,
     this.variants = const [],
+    this.variantStock = const {},
+    this.paymentMethods = PaymentMethod.values,
     this.minPrice,
     this.maxPrice,
     this.lowStockThreshold = 5,
@@ -24,6 +26,10 @@ class Product {
   final UnitType unit;
   final double price;
   final double availableQty;
+  final Map<String, double> variantStock;
+  final List<PaymentMethod> paymentMethods;
+  double stockFor(String? variant) => variantStock[variant] ?? availableQty;
+
   final String? variantLabel; // e.g. "সাইজ"
   final List<String> variants; // e.g. S, M, L
   final double? minPrice;

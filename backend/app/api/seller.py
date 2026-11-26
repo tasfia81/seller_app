@@ -5,11 +5,13 @@ from typing import Literal
 
 from fastapi import APIRouter, File, UploadFile
 
+from ..core.config import settings
 from ..core.deps import SellerDep, StoreDep, UserDep
 from ..core.errors import AppError, Forbidden
-from ..schemas import ApplicationIn, CorrectionIn, HandoverIn, ProfileChangeIn, ReturnIn, SaleIn
-from ..services import applications, auth, catalog, finance, inventory, reports, sales, sellers, settlements, system
-from ..services.common import APPLICATIONS, PRODUCTS, RETURNS, SELLER_STOCK, require
+from ..storage import Tx
+from ..schemas import ApplicationIn, CorrectionIn, HandoverIn, ProfileChangeIn, ReturnIn, SaleIn, OtpRequestIn
+from ..services import applications, auth, catalog, finance, inventory, password_recovery, reports, sales, sellers, settlements, system
+from ..services.common import APPLICATIONS, ASSIGNMENTS, CATEGORIES, PRODUCTS, RETURNS, SELLER_CASH_METHODS, SELLER_STOCK, SETTINGS, require
 from ..services.compensation import current_rule, rule_text
 from .uploads import save_image
 
@@ -18,18 +20,29 @@ DocKind = Literal["nid_front", "nid_back", "photo"]
 
 
 # ---------- onboarding (no seller account yet) ----------
+@router.post("/application/otp", summary="সেলার আবেদনের জন্য মোবাইল যাচাইয়ের কোড")
+def request_application_otp(body: OtpRequestIn, store: StoreDep):
+    password_recovery.request(store, body.mobile, signup=True)
+
+
 @router.post("/applications", status_code=201, summary="সেলার হিসেবে আবেদন")
 def submit_application(body: ApplicationIn, store: StoreDep):
     with store.transaction() as tx:
-        created = applications.submit(tx, body)
-    with store.transaction() as tx:
-        session = auth.login(tx, body.mobile, body.password)
+        require_otp = bool(settings.bulksmsbd_api_key) or settings.storage == "firestore"
+        verified = not require_otp or password_recovery.verify_signup(
+            tx, body.mobile, body.otp_code
+        )
+        if verified:
+            created = applications.submit(tx, body)
+            session = auth.login(tx, body.mobile, body.password)
+    if not verified:
+        raise AppError("কোডটি ভুল অথবা মেয়াদ শেষ হয়েছে।", code="invalid_otp")
     return {**created, **session, "message": "আবেদন জমা হয়েছে। এখন পরিচয়পত্র ও ছবি আপলোড করুন।"}
 
 
 @router.post("/application/documents/{kind}", summary="পরিচয়পত্র বা ছবি আপলোড")
 async def upload_document(kind: DocKind, user: UserDep, store: StoreDep, file: UploadFile = File(...)):
-    if not user.get("application_id"):
+    if user["role"] != "seller" or not user.get("application_id"):
         raise Forbidden("আবেদন পাওয়া যায়নি।")
     ref, ctype = await save_image(file, f"applications/{user['application_id']}", kind)
     with store.transaction() as tx:
@@ -38,6 +51,8 @@ async def upload_document(kind: DocKind, user: UserDep, store: StoreDep, file: U
 
 @router.get("/application", summary="আবেদনের অবস্থা")
 def my_application(user: UserDep, store: StoreDep):
+    if user["role"] != "seller":
+        raise Forbidden("আবেদন পাওয়া যায়নি।")
     with store.transaction() as tx:
         app = require(tx, APPLICATIONS, user.get("application_id") or "", "আবেদন পাওয়া যায়নি।")
         return applications.public_view(app)
@@ -45,6 +60,8 @@ def my_application(user: UserDep, store: StoreDep):
 
 @router.post("/application/resubmit", summary="চাওয়া তথ্য দিয়ে আবার জমা")
 def resubmit(user: UserDep, store: StoreDep):
+    if user["role"] != "seller":
+        raise Forbidden("আবেদন পাওয়া যায়নি।")
     with store.transaction() as tx:
         return applications.resubmit(tx, user)
 
@@ -54,6 +71,20 @@ def resubmit(user: UserDep, store: StoreDep):
 def dashboard(ctx: SellerDep, store: StoreDep):
     with store.transaction() as tx:
         return reports.seller_dashboard(tx, ctx.seller)
+
+
+def _product_for_seller(tx: Tx, product: dict, seller: dict, qty: float) -> dict:
+    result = catalog.seller_view(product, qty)
+    result["category_name"] = (tx.get(CATEGORIES, product["category_id"]) or {}).get("name")
+    fixed = tx.first(ASSIGNMENTS, lambda a: a["seller_id"] == seller["id"]
+                     and a["status"] in ("active", "partially_returned") and a["price_mode"] == "fixed"
+                     and any(item["product_id"] == product["id"] for item in a["items"]))
+    result["price_editable"] = product["price_editable"] and seller["permissions"].get("can_edit_price", False) and not fixed
+    methods = (tx.get(SETTINGS, "main") or {}).get("payments", {})
+    result["payment_methods"] = [method for method in sales.PAYMENT_LABEL
+                                 if methods.get(method, {}).get("enabled", True)
+                                 and (method in SELLER_CASH_METHODS or seller["permissions"].get("can_take_digital", True))]
+    return result
 
 
 @router.get("/products", summary="আমাকে দেওয়া পণ্য")
@@ -72,9 +103,8 @@ def my_products(ctx: SellerDep, store: StoreDep, q: str | None = None, category_
                 continue
             if in_stock is not None and (qty > 0) != in_stock:
                 continue
-            view = catalog.seller_view(p, qty)
+            view = _product_for_seller(tx, p, ctx.seller, qty)
             view["variant_stock"] = variants.get(pid, {})
-            view["price_editable"] = p["price_editable"] and ctx.seller["permissions"].get("can_edit_price", False)
             out.append(view)
         return sorted(out, key=lambda p: (p["available_qty"] <= 0, p["name"]))
 
@@ -86,7 +116,7 @@ def product_detail(product_id: str, ctx: SellerDep, store: StoreDep):
         stocks = tx.find(SELLER_STOCK, lambda s: s["seller_id"] == ctx.id and s["product_id"] == product_id)
         if not stocks:
             raise Forbidden("এই পণ্য আপনাকে দেওয়া হয়নি।")
-        view = catalog.seller_view(p, sum(s["qty"] for s in stocks))
+        view = _product_for_seller(tx, p, ctx.seller, sum(s["qty"] for s in stocks))
         view["variant_stock"] = {s["variant"]: s["qty"] for s in stocks if s["variant"]}
         return view
 

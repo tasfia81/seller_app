@@ -1,9 +1,11 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/router/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
 import '../../core/utils/bn_format.dart';
@@ -16,7 +18,13 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(summaryProvider);
+    final state = ref.watch(investorProfileProvider);
+    if (!state.hasValue) return ApiStatus(state, onRetry: () => ref.invalidate(investorProfileProvider));
+    final profile = state.valueOrNull!;
+    final name = profile['name'] as String;
+    final payout = profile['payout'] as Map;
+    final nominee = profile['nominee'] as Map;
+    final address = profile['address'] as Map;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -40,7 +48,7 @@ class ProfileScreen extends ConsumerWidget {
                       CircleAvatar(
                         radius: 30.r,
                         backgroundColor: Colors.white,
-                        child: Text(s.investorName.substring(0, 2),
+                        child: Text(name.length < 2 ? name : name.substring(0, 2),
                             style: AppText.section.copyWith(color: AppColors.primaryDark)),
                       ),
                       SizedBox(width: 14.w),
@@ -48,7 +56,7 @@ class ProfileScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(s.investorName, style: AppText.title.copyWith(color: Colors.white)),
+                            Text(name, style: AppText.title.copyWith(color: Colors.white)),
                             Row(
                               children: [
                                 Icon(Icons.verified_rounded, size: 16.r, color: AppColors.onPrimaryMuted),
@@ -66,29 +74,28 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
             _Section(title: 'ব্যক্তিগত তথ্য', rows: [
-              ('মোবাইল', BnFormat.digits('017•••••678')),
-              ('NID', BnFormat.maskNid('1990269482117')),
-              ('ঠিকানা', 'মোহাম্মদপুর, ঢাকা'),
+              ('মোবাইল', BnFormat.digits('${profile['mobile']}')),
+              ('NID', BnFormat.digits('${profile['nid_masked']}')),
+              ('ঠিকানা', [address['detail'], address['upazila'], address['district']].whereType<String>().join(', ')),
             ]),
-            const _Section(title: 'লাভ পাওয়ার মাধ্যম', rows: [
-              ('প্রধান', 'বিকাশ ••৭৭০২'),
-              ('মূলধন ফেরত', 'ব্যাংক ••৪৮২১'),
+            _Section(title: 'লাভ পাওয়ার মাধ্যম', rows: [
+              ('নিবন্ধিত মাধ্যম', [payout['method_label'], payout['account_masked']].whereType<String>().join(' ')),
             ]),
             _Section(title: 'নমিনি', rows: [
-              ('নাম', 'সাবরিনা আহমেদ'),
-              ('সম্পর্ক', 'স্ত্রী'),
-              ('মোবাইল', BnFormat.digits('018•••••111')),
+              ('নাম', '${nominee['name'] ?? '—'}'),
+              ('সম্পর্ক', '${nominee['relation'] ?? '—'}'),
+              ('মোবাইল', BnFormat.digits('${nominee['mobile'] ?? '—'}')),
             ]),
             Padding(
               padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
               child: OutlinedButton(
-                onPressed: () => showDemoNotice(context, 'ডেমো মোড: তথ্য বদলের অনুরোধ সার্ভার যুক্ত হলে যাবে।'),
+                onPressed: () => context.push(AppRoutes.supportNew('account', 'অ্যাকাউন্ট ও যাচাই')),
                 child: const Text('তথ্য বদলাতে অনুরোধ করুন'),
               ),
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(20.w, 10.h, 20.w, 0),
-              child: Text('নিরাপত্তার জন্য তথ্য বদলাতে OTP ও অ্যাডমিনের অনুমোদন লাগে।',
+              child: Text('তথ্য পরিবর্তনের জন্য অফিস সাপোর্টে যোগাযোগ করুন।',
                   textAlign: TextAlign.center, style: AppText.small),
             ),
           ],

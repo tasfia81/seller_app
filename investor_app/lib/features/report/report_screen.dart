@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,8 +6,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
-import '../../core/constants/app_config.dart';
-import '../../core/utils/bn_format.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/ui.dart';
 import '../../data/investor_repository.dart';
@@ -24,10 +23,13 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final months = ref.watch(monthsProvider);
+    final monthsState = ref.watch(monthsProvider);
+    if (!monthsState.hasValue) return ApiStatus(monthsState, onRetry: () => ref.invalidate(monthsProvider));
+    final months = monthsState.valueOrNull!;
+    if (months.isEmpty) return const Center(child: Text('এখনো কোনো মাসিক রিপোর্ট নেই।'));
     final latestClosed = months.lastIndexWhere((m) => m.closed);
     final index = _index ?? (latestClosed < 0 ? months.length - 1 : latestClosed);
-    final m = months[index];
+    final m = months[index.clamp(0, months.length - 1)];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -82,9 +84,13 @@ class _ReportScreenState extends ConsumerState<ReportScreen> {
           Padding(
             padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 0),
             child: OutlinedButton.icon(
-              onPressed: () => showDemoNotice(context, 'ডেমো মোড: রিপোর্টের PDF সার্ভার যুক্ত হলে পাওয়া যাবে।'),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text:
+                  '${m.name}\nবিক্রি: ${tk(m.revenue)}\nনিট লাভ: ${tk(m.net)}\nআপনার ভাগ: ${tk(m.share)}'));
+                if (context.mounted) showDemoNotice(context, 'রিপোর্টের সারাংশ কপি হয়েছে।');
+              },
               icon: const Icon(Icons.download_rounded),
-              label: Text('${m.name}-এর রিপোর্ট PDF'),
+              label: Text('${m.name}-এর রিপোর্ট কপি'),
             ),
           ),
         ],
@@ -158,7 +164,7 @@ class _Breakdown extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text('আপনার ভাগ (${BnFormat.digits('${AppConfig.profitSharePercent}')}%)',
+                      child: Text('আপনার ভাগ',
                           style: AppText.bodyStrong.copyWith(color: Colors.white, fontSize: 16.sp)),
                     ),
                     Text(tk(m.share), style: AppText.amount(19, color: Colors.white)),

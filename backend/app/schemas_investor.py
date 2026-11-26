@@ -39,6 +39,7 @@ class MobileCheckIn(In):
 
 
 class InvestorApplicationIn(In):
+    otp_code: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
     full_name: str = Field(min_length=2, max_length=80)
     mobile: str
     date_of_birth: date

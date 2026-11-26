@@ -114,7 +114,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
             data: (all) {
               final list = all
                   .where((s) => _status == null || s.status == _status)
-                  .where((s) => _query.isEmpty || s.id.contains(_query))
+                  .where((s) => _query.isEmpty || (s.receiptNo ?? s.id).toLowerCase().contains(_query.toLowerCase()))
                   .toList();
               final total = list.fold<double>(0, (a, s) => a + s.total);
               return RefreshIndicator(

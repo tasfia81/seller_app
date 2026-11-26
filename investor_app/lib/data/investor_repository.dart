@@ -1,3 +1,5 @@
+import 'api_investor_repository.dart';
+import 'auth/auth_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'models.dart';
@@ -196,18 +198,21 @@ class DemoInvestorRepository implements InvestorRepository {
       ];
 }
 
-final investorRepositoryProvider = Provider<InvestorRepository>((_) => const DemoInvestorRepository());
+final investorRepositoryProvider = Provider((ref) => ApiInvestorRepository(ref.watch(apiClientProvider)));
 
-final summaryProvider = Provider((ref) => ref.watch(investorRepositoryProvider).summary());
-final holdingsProvider = Provider((ref) => ref.watch(investorRepositoryProvider).holdings());
-final sellersProvider = Provider((ref) => ref.watch(investorRepositoryProvider).sellers());
-final ledgerProvider = Provider((ref) => ref.watch(investorRepositoryProvider).ledger());
-final monthsProvider = Provider((ref) => ref.watch(investorRepositoryProvider).months());
-final noticesProvider = Provider((ref) => ref.watch(investorRepositoryProvider).notices());
-
-final holdingProvider = Provider.family<ProductHolding?, String>((ref, id) {
-  for (final h in ref.watch(holdingsProvider)) {
-    if (h.id == id) return h;
+final summaryProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).summary());
+final holdingsProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).holdings());
+final sellersProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).sellers());
+final ledgerProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).ledger());
+final investorProfileProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).profile());
+final withdrawalsProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).withdrawals());
+final monthsProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).months());
+final noticesProvider = FutureProvider.autoDispose((ref) => ref.watch(investorRepositoryProvider).notices());
+final holdingProvider = FutureProvider.autoDispose.family<ProductHolding?, String>((ref, id) async {
+  final repo = ref.watch(investorRepositoryProvider);
+  final holdings = await ref.watch(holdingsProvider.future);
+  for (final h in holdings) {
+    if (h.id == id) return repo.holding(h);
   }
   return null;
 });

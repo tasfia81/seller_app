@@ -1,3 +1,5 @@
+import '../api/api_client.dart';
+
 /// Typed failures that repositories throw. UI maps them to Bangla messages.
 sealed class Failure implements Exception {
   const Failure();
@@ -43,4 +45,8 @@ class UnknownFailure extends Failure {
 }
 
 String failureMessage(Object error) =>
-    error is Failure ? error.message : const UnknownFailure().message;
+    switch (error) {
+      Failure(:final message) => message,
+      ApiException(:final message) => message,
+      _ => const UnknownFailure().message,
+    };

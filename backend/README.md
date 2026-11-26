@@ -15,7 +15,7 @@ py -m venv .venv
 - Health: http://127.0.0.1:8000/health
 - Tests: `.\.venv\Scripts\python.exe -m pytest -q`
 
-Data is stored in `data/db.json` (photos in `data/uploads/`). On first start the database is empty, so demo data is filled in automatically. To reset, delete the `data/` folder.
+Data is stored in `data/db.json` (photos in `data/uploads/`). Set `SEED_DEMO_DATA=true` to seed an empty local database with demo accounts. To reset, delete the `data/` folder.
 
 ## Demo logins (local only)
 
@@ -37,8 +37,17 @@ Login: `POST /api/v1/auth/login` `{ "identifier": "...", "password": "..." }` �
 | `UPLOAD_DIR` | `data/uploads` | Private photo folder |
 | `SECRET_KEY` | `dev-only-change-me` | Token signing key — **change it in production** |
 | `TOKEN_TTL_HOURS` | `72` | Login lifetime |
-| `SEED_DEMO_DATA` | `true` | Fill demo data into an empty DB |
+| `SEED_DEMO_DATA` | `false` | Fill demo data into an empty DB |
 | `CORS_ORIGINS` | `http://localhost:3000,...` | Admin panel URL |
+
+## SMS verification and recovery
+
+Set `BULKSMSBD_API_KEY` as a server secret and set `BULKSMSBD_SENDER_ID` if
+using a different approved sender. Use a private `SECRET_KEY` in production.
+Seller and investor registration plus seller, investor and admin password recovery use single-use SMS codes with a
+five-minute lifetime and a five-attempt limit. Local deployments without an
+SMS key keep the legacy application API available for development tests. The
+mobile apps expect SMS verification during registration.
 
 ## Structure
 
@@ -56,10 +65,10 @@ Error format: `{"error": {"code": "insufficient_stock", "message": "<Bangla mess
 
 ## Main endpoints
 
-**Auth** — `POST /auth/login`, `GET /auth/me`, `POST /auth/password/otp` (501 until an SMS provider is connected)
+**Auth** — `POST /auth/login`, `GET /auth/me`, `POST /auth/password/otp` and `POST /auth/password/reset` (seller SMS recovery)
 
 **Seller** (`/api/v1/seller`)
-- Application: `POST /applications`, `POST /application/documents/{nid_front|nid_back|photo}`, `GET /application`, `POST /application/resubmit`
+- Application: `POST /application/otp`, `POST /applications`, `POST /application/documents/{nid_front|nid_back|photo}`, `GET /application`, `POST /application/resubmit`
 - Home / products: `GET /dashboard`, `GET /products`, `GET /products/{id}` (cost is never shown)
 - Assignments: `GET /assignments`, `POST /assignments/{id}/accept`
 - Sales: `POST /sales` (with `client_request_id`, duplicate-safe), `GET /sales`, `GET /sales/{id}`, `POST /sales/{id}/corrections`
@@ -81,7 +90,7 @@ Error format: `{"error": {"code": "insufficient_stock", "message": "<Bangla mess
 - System: notifications, `audit-log`, `settings`
 
 **Investor app** (`/api/v1/investor`)
-- Application: `POST /applications`, `POST /application/documents/{nid_front|nid_back|selfie}`, `GET /application`, `POST /application/resubmit`
+- Application: `POST /application/otp`, `POST /applications`, `POST /application/documents/{nid_front|nid_back|selfie}`, `GET /application`, `POST /application/resubmit`
 - `GET /dashboard`, `GET /portfolio`, `GET /products/{id}`, `GET /sellers` (name and area only — no phone/NID), `GET /ledger`, `GET /reports`
 - `PUT /preferences` (take profit as cash / reinvest), `GET|POST /withdrawals`, `GET /notifications`
 

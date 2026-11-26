@@ -1,6 +1,9 @@
 """End-to-end API tests over the seeded demo data."""
 
+from dataclasses import replace
 from datetime import date, timedelta
+
+import pytest
 
 API = "/api/v1"
 
@@ -33,7 +36,8 @@ def test_otp_is_not_simulated(client):
 
 
 # ---------- onboarding ----------
-def test_application_flow_requires_documents_and_hides_nid(client, admin):
+@pytest.mark.parametrize("verify_mobile", [False, True])
+def test_application_flow_requires_documents_and_hides_nid(client, admin, monkeypatch, verify_mobile):
     body = {
         "full_name": "পরীক্ষা সেলার", "mobile": "01555000111", "date_of_birth": "2001-01-01",
         "present_address": {"division": "ঢাকা", "district": "ঢাকা", "upazila": "মিরপুর", "detail": "বাড়ি ১"},
@@ -41,6 +45,23 @@ def test_application_flow_requires_documents_and_hides_nid(client, admin):
         "nid_number": "1112223334", "emergency": {"name": "মা", "relation": "মা", "mobile": "01555000222"},
         "password": "pass12345", "accepted_privacy": True, "accepted_terms": True,
     }
+    if verify_mobile:
+        from app.api import seller
+        from app.services import password_recovery
+
+        configured = replace(seller.settings, bulksmsbd_api_key="test-key")
+        monkeypatch.setattr(seller, "settings", configured)
+        monkeypatch.setattr(password_recovery, "settings", configured)
+        sent = {}
+        monkeypatch.setattr(
+            password_recovery, "send_otp",
+            lambda _, mobile, code: sent.update({mobile: code}),
+        )
+        assert client.post(f"{API}/seller/application/otp", json={"mobile": body["mobile"]}).status_code == 200
+        code = sent[body["mobile"]]
+        body["otp_code"] = "000000" if code != "000000" else "111111"
+        assert client.post(f"{API}/seller/applications", json=body).json()["error"]["code"] == "invalid_otp"
+        body["otp_code"] = code
     r = client.post(f"{API}/seller/applications", json=body)
     assert r.status_code == 201, r.text
     applicant = {"Authorization": f"Bearer {r.json()['access_token']}"}

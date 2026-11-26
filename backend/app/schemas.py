@@ -30,6 +30,11 @@ class LoginIn(In):
     password: str = Field(min_length=1)
 
 
+class ChangePasswordIn(In):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+
 class OtpRequestIn(In):
     mobile: str
 
@@ -59,6 +64,7 @@ class EmergencyIn(In):
 
 
 class ApplicationIn(In):
+    otp_code: str | None = Field(default=None, pattern=r"^[0-9]{6}$")
     full_name: str = Field(min_length=2, max_length=80)
     mobile: str
     date_of_birth: date

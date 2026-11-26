@@ -32,6 +32,7 @@ class StockReturnScreen extends ConsumerStatefulWidget {
 class _StockReturnScreenState extends ConsumerState<StockReturnScreen> {
   Product? _product;
   double _qty = 1;
+  String? _variant;
   ReturnReason? _reason;
   final _note = TextEditingController();
   XFile? _photo;
@@ -46,7 +47,8 @@ class _StockReturnScreenState extends ConsumerState<StockReturnScreen> {
 
   void _choose(Product p) => setState(() {
         _product = p;
-        _qty = p.unit.step.clamp(0, p.availableQty).toDouble();
+        _variant = p.variants.length == 1 ? p.variants.single : null;
+        _qty = p.unit.step.clamp(0, p.stockFor(_variant)).toDouble();
       });
 
   Future<void> _pickProduct(List<Product> list) async {
@@ -61,6 +63,7 @@ class _StockReturnScreenState extends ConsumerState<StockReturnScreen> {
       await ref.read(inventoryRepositoryProvider).submitReturn(StockReturnDraft(
             productId: _product!.id,
             quantity: _qty,
+            variant: _variant,
             reason: _reason!,
             note: _note.text.trim().isEmpty ? null : _note.text.trim(),
             photoPath: _photo?.path,
@@ -77,7 +80,8 @@ class _StockReturnScreenState extends ConsumerState<StockReturnScreen> {
   Widget build(BuildContext context) {
     if (_sent) return _SentView(product: _product!, qty: _qty);
     final products = ref.watch(assignedProductsProvider);
-    final canSubmit = _product != null && _qty > 0 && _reason != null;
+    final p0 = _product;
+    final canSubmit = p0 != null && _qty > 0 && _reason != null && (p0.variants.isEmpty || _variant != null);
     return Scaffold(
       appBar: AppBar(title: const Text('স্টক ফেরত')),
       body: AsyncValueView<List<Product>>(
@@ -106,12 +110,18 @@ class _StockReturnScreenState extends ConsumerState<StockReturnScreen> {
               ),
               if (p != null) ...[
                 SizedBox(height: 16.h),
+                if (p.variants.isNotEmpty)
+                  ChoicePills<String>(options: p.variants, labelOf: (value) => value, selected: _variant,
+                    onSelected: (value) => setState(() {
+                      _variant = value;
+                      _qty = p.unit.step.clamp(0, p.stockFor(value)).toDouble();
+                    })),
                 FieldLabel('পরিমাণ (${p.unit.label})', required: true),
                 QuantityStepper(
                   value: _qty,
                   step: p.unit.step,
                   min: p.unit.step,
-                  max: p.availableQty,
+                  max: p.stockFor(_variant),
                   onChanged: (v) => setState(() => _qty = v),
                 ),
               ],

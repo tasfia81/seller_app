@@ -1,3 +1,5 @@
+import { ApiForm } from "@/components/ui/ApiForm";
+import { submitOperation } from "../../operational-actions";
 import Link from "next/link";
 import { Suspense } from "react";
 import { LoadError } from "@/components/shell/LoadState";
@@ -53,7 +55,7 @@ async function SellerProfile({ params }: { params: Promise<{ id: string }> }) {
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Link className="btn" href="/assignments/new"><Icon name="truck" size={18} />স্টক দিন</Link>
-            <Link className="btn o" href="/compensation">আয়ের নিয়ম বদলান</Link>
+            <Link className="btn o" href={`/compensation?seller=${encodeURIComponent(id)}`}>আয়ের নিয়ম বদলান</Link>
           </div>
         </section>
 
@@ -96,11 +98,26 @@ async function SellerProfile({ params }: { params: Promise<{ id: string }> }) {
               )}
             </section>
             <SellerEditForm seller={s} presentAddress={placeText(s.present_address)} />
+            {r.data.profile_requests?.length ? <section className="cd">
+              <h2 className="h2">প্রোফাইল পরিবর্তনের অনুরোধ</h2>
+              {r.data.profile_requests.map((request) => <div key={request.id} className="f">
+                <KV label={request.field}>{request.new_value}</KV>
+                {request.status === "pending" ? <div className="fg">
+                  {(["approve", "reject"] as const).map((decision) => <ApiForm key={decision}
+                    label={decision === "approve" ? "অনুমোদন" : "বাতিল"}
+                    confirm="এই অনুরোধের সিদ্ধান্ত সংরক্ষণ করবেন?"
+                    action={submitOperation.bind(null, "profile-request", id)}>
+                    <input type="hidden" name="request_id" value={request.id} />
+                    <input type="hidden" name="decision" value={decision} />
+                  </ApiForm>)}
+                </div> : <span className="mu">{request.status === "approved" ? "অনুমোদিত" : "বাতিল"}</span>}
+              </div>)}
+            </section> : null}
           </div>
 
           <div className="b">
             <section className="cd">
-              <div className="sh" style={{ marginBottom: 4 }}><h2 className="h2">আয়ের নিয়ম</h2><Link href="/compensation">বদলান</Link></div>
+              <div className="sh" style={{ marginBottom: 4 }}><h2 className="h2">আয়ের নিয়ম</h2><Link href={`/compensation?seller=${encodeURIComponent(id)}`}>বদলান</Link></div>
               <KV label="বর্তমান">{bnDigits(compensation.label)}</KV>
               {compensation.effective_from ? <KV label="কার্যকর">{bnDate(compensation.effective_from, true)} থেকে</KV> : null}
             </section>

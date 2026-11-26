@@ -32,6 +32,10 @@ class Settings:
             "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
         ).split(",")
     )
+    bulksmsbd_api_key: str = field(
+        default_factory=lambda: os.getenv("BULKSMSBD_API_KEY", ""), repr=False
+    )
+    bulksmsbd_sender_id: str = os.getenv("BULKSMSBD_SENDER_ID", "8809617643542")
     max_upload_bytes: int = 5 * 1024 * 1024
 
 

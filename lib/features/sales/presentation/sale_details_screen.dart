@@ -90,7 +90,7 @@ class _Receipt extends StatelessWidget {
           StatusChip.sale(s.status),
         ]),
         SizedBox(height: 8.h),
-        Text(s.status == SaleStatus.pendingSync ? 'সার্ভারে পাঠানো বাকি' : 'বিক্রি নম্বর #${s.id}', style: AppText.caption),
+        Text(s.status == SaleStatus.pendingSync ? 'সার্ভারে পাঠানো বাকি' : 'বিক্রি নম্বর #${s.receiptNo ?? s.id}', style: AppText.caption),
         Text(BnFormat.dateTime(s.time), style: AppText.caption),
         const Divider(height: 24),
         KeyValueRow('পণ্য', s.productName),

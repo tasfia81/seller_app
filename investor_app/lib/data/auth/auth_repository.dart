@@ -70,6 +70,20 @@ class AuthRepository {
     await _storage.write(key: _tokenKey, value: token);
   }
 
+  Future<void> requestApplicationOtp(String mobile) async {
+    await _api.post('/investor/application/otp', {'mobile': mobile});
+  }
+
+  Future<void> requestPasswordOtp(String mobile) async {
+    await _api.post('/investor/password/otp', {'mobile': mobile});
+  }
+
+  Future<void> resetPassword(String mobile, String code, String password) async {
+    await _api.post('/investor/password/reset', {
+      'mobile': mobile, 'code': code, 'new_password': password,
+    });
+  }
+
   /// True when no account uses this mobile yet.
   Future<bool> mobileAvailable(String mobile) async {
     final res = await _api.post('/investor/mobile-check', {'mobile': mobile}) as Map;

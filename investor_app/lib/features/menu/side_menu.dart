@@ -10,7 +10,6 @@ import '../../app/theme/app_text.dart';
 import '../../core/utils/bn_format.dart';
 import '../../core/widgets/ui.dart';
 import '../../data/auth/auth_controller.dart';
-import '../../data/investor_repository.dart';
 import '../common/sheets.dart';
 
 /// Green menu that sits behind the shrinking screen.
@@ -22,9 +21,10 @@ class SideMenu extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final summary = ref.watch(summaryProvider);
+    final auth = ref.watch(authControllerProvider);
     final size = MediaQuery.sizeOf(context);
-    final firstName = summary.investorName.split(' ').first;
+    final name = auth is SignedIn ? auth.user.name : '';
+    final firstName = name.split(' ').first;
 
     void then(VoidCallback action) {
       onClose();
@@ -74,7 +74,7 @@ class SideMenu extends ConsumerWidget {
                         CircleAvatar(
                           radius: 26.r,
                           backgroundColor: Colors.white,
-                          child: Text(summary.investorName.substring(0, 2),
+                          child: Text(name.substring(0, 2),
                               style: AppText.cardTitle.copyWith(color: AppColors.primaryDark)),
                         ),
                         SizedBox(width: 12.w),

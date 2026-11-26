@@ -1,8 +1,8 @@
-# স্ট্রিট সেলস — Seller App (UI phase)
+# স্ট্রিট সেলস — Seller App
 
 > This repository also contains the **admin web panel** in [`admin_panel/`](admin_panel/README.md) (Next.js), the **FastAPI backend** in [`backend/`](backend/README.md) and the **investor app** in [`investor_app/`](investor_app/README.md) (Flutter).
 
-Bangla-first Flutter UI for the street-sales seller app. This phase is **UI only**: no backend, no real auth/OTP, no real money movement.
+Bangla-first Flutter seller app. Use the shared local FastAPI backend for the Seller app, Investor app and Admin panel. The default storage is local JSON.
 
 ## First-time setup
 
@@ -27,10 +27,16 @@ flutter run -d chrome
 
 Open Chrome DevTools → device toolbar to see it at phone size.
 
-### Easy access during the UI phase
+### Seller login and registration
 
-- `AppConfig.skipAuthValidation = true`: login, password reset and the seller application accept any input (even empty) so every screen can be reached. Set to `false` to turn validation back on.
-- Welcome screen has **"ডেমো: সরাসরি অ্যাপ দেখুন"** to jump straight to Home (only while `demoMode` is on).
+- Run FastAPI, then start the Seller app. The Android emulator defaults to
+  `http://10.0.2.2:8000/api/v1`. For a physical device or release, pass the
+  backend URL with `--dart-define=API_URL=https://your-server/api/v1`.
+- Set `BULKSMSBD_API_KEY` in the backend environment to enable registration
+  verification and password recovery. Set `BULKSMSBD_SENDER_ID` if the approved
+  sender differs from the repository default.
+- For a local UI preview, run with `--dart-define=PREVIEW_AUTH=true`. This enables
+  the demo entry button and preview-only forms.
 
 ## Tech
 
@@ -58,27 +64,39 @@ lib/
     presentation/ screens (+ controller where there is logic)
 ```
 
-## Demo mode
+## Local backend for all three apps
 
-`AppConfig.demoMode = true` (lib/core/constants/app_config.dart):
+Run FastAPI from the `backend` directory with Python 3.12:
 
-- A yellow **ডেমো** banner shows in the corner.
-- Repositories return clothing-product fixtures from `core/demo/demo_data.dart` (no real people, NIDs or transactions).
-- OTP / password reset are **never simulated**: the screens can be previewed but show "শুধু স্ক্রিন দেখানো হচ্ছে".
-- Set it to `false` and every screen shows a "সার্ভারের সাথে সংযোগ এখনো চালু হয়নি" state instead of data.
+```sh
+python -m pip install -r requirements.txt
+STORAGE=local SEED_DEMO_DATA=true python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
-To integrate FastAPI: implement each `domain/*` interface with an HTTP client and swap the provider in `data/*`.
+`SEED_DEMO_DATA=true` fills an empty local database with the sample accounts
+listed in [backend/README.md](backend/README.md). Subsequent launches preserve
+data in `backend/data/db.json`. Set the rotated BulkSMSBD key in the backend
+environment before testing registration or password recovery.
+
+- **Seller App** — run `flutter pub get` and `flutter run` from the repository root.
+- **Investor App** — run those commands from `investor_app/`.
+- **Admin Panel** — run `npm ci` and `npm run dev` from `admin_panel/`, then open `http://localhost:3000`.
+- For both Android emulators the default API URL is `http://10.0.2.2:8000/api/v1`.
+  For a Flutter web preview use `--dart-define=API_URL=http://127.0.0.1:8000/api/v1`
+  and add the preview origin to `CORS_ORIGINS`. The admin defaults to the same local API.
+- Seller UI-only preview is available in debug builds with
+  `--dart-define=PREVIEW_AUTH=true`.
 
 ## Screen inventory
 
 | # | Screen | Route | Status |
 |---|---|---|---|
-| 01 | Splash | `/` | Done — routes to intro (session check is a TODO) |
+| 01 | Splash | `/` | Restores the saved seller session or opens the intro |
 | — | Intro (3 slides) | `/intro` | Done |
 | 02 | Welcome | `/welcome` | Done |
-| 03 | Login | `/login` | Done (validation; demo login opens Home) |
-| 04–05 | Forgot password: mobile → OTP → new password | `/forgot-password` | UI done, backend required |
-| 06–10 | Registration steps 1–5 (personal, identity + NID/photo capture, emergency, security, review) | `/register` | Done (local validation, camera/gallery, consents) |
+| 03 | Login | `/login` | FastAPI mobile/password login and secure session restore |
+| 04–05 | Forgot password: mobile → OTP → new password | `/forgot-password` | Seller SMS reset via FastAPI |
+| 06–10 | Registration steps 1–5 (personal, identity + NID/photo capture, emergency, security, review) | `/register` | FastAPI application, SMS verification and document upload |
 | 11 | Application submitted | `/application-submitted` | Done |
 | 12 | Application status (+ resubmit one document) | `/application-status` | Done |
 | 13 | Home dashboard | `/home` | Done |
@@ -87,12 +105,12 @@ To integrate FastAPI: implement each `domain/*` interface with an HTTP client an
 | 16 | Quick sale (variant, unit-aware quantity, price limits, payment, idempotent submit) | `/new-sale` | Done |
 | 17 | Sale success | `/sale-success` | Done — only shown with a confirmed sale |
 | 18 | Sales history (today / yesterday / 7 days / date range, ID search, status filter) | `/sales` | Done |
-| — | Sale details / receipt / correction request | `/sale-details/:id` | Done (correction needs backend) |
+| — | Sale details / receipt / correction request | `/sale-details/:id` | FastAPI sale detail and correction requests |
 | 19 | My earnings (earnings + payout history) | `/earnings` | Done |
 | 20 | My inventory (policy, summary, movements) | `/inventory` | Done |
 | 21 | Stock return request | `/stock-return` | Done (stays pending) |
 | 22 | Cash handover (pending verification) | `/cash-handover` | Done |
-| 23 | Day closing (policy requirements) | `/day-closing` | Done (submit needs backend) |
+| 23 | Day closing (policy requirements) | `/day-closing` | FastAPI reconciliation and submission |
 | 24 | Notifications (filters, read/unread) | `/notifications` | Done |
 | 25 | Account | `/account` | Done |
 | 26 | Profile (masked NID) | `/profile` | Done |
@@ -100,7 +118,7 @@ To integrate FastAPI: implement each `domain/*` interface with an HTTP client an
 
 ## Not done yet
 
-- Remembered phone number / stored session (needs secure storage).
+- Remembered phone number.
 - English translations (all copy is Bangla; strings are inline).
 - Real logo and product images (icons are placeholders).
 - Dark theme (colors are centralised in `AppColors` so it can be added).

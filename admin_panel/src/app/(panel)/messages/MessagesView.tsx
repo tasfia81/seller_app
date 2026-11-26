@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Avatar, Chip, Note } from "@/components/ui/bits";
 import { ConfirmDialog, useToast } from "@/components/ui/feedback";
-import { bnDigits } from "@/lib/format";
+import { sendAdminMessage } from "./actions";
+import { bnDate, bnDigits } from "@/lib/format";
 
 interface Person { id: string; name: string; active: boolean }
 type Audience = "all_sellers" | "all_investors" | "everyone" | "sellers" | "investors";
@@ -23,12 +24,10 @@ const TEMPLATES = [
   { title: "নতুন স্টক এসেছে", body: "নতুন ব্যাচের প্রোডাক্ট গুদামে এসেছে। অ্যাপে আপনার বরাদ্দ দেখে নিন।" },
 ];
 
-const HISTORY = [
-  { title: "অক্টোবরের রিপোর্ট প্রস্তুত", audience: "সব সক্রিয় বিনিয়োগকারী", count: 4, at: "১ নভেম্বর, সকাল ১০:০৫" },
-  { title: "হাতিরঝিলে আজ মেলা", audience: "সব সক্রিয় সেলার", count: 4, at: "২৮ অক্টোবর, সকাল ৮:৩০" },
-];
+export type MessageHistory = { id: string; title: string; audience: Audience; recipient_count: number; at: string };
 
-export function MessagesView({ sellers, investors }: { sellers: Person[]; investors: Person[] }) {
+export function MessagesView({ sellers, investors, history }: { sellers: Person[]; investors: Person[]; history: MessageHistory[] }) {
+  const lastRequest = useRef<{ input: string; id: string } | null>(null);
   const toast = useToast();
   const [audience, setAudience] = useState<Audience>("all_sellers");
   const [picked, setPicked] = useState<string[]>([]);
@@ -48,10 +47,25 @@ export function MessagesView({ sellers, investors }: { sellers: Person[]; invest
   const error = !recipients.length ? "কাকে পাঠাবেন বাছুন।" : title.trim().length < 2 ? "শিরোনাম লিখুন।" : body.trim().length < 2 ? "বার্তা লিখুন।" : null;
   const toggle = (id: string) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]);
 
-  const send = () => {
-    setSending(true); // UI lock; the server also ignores a repeated request id.
-    toast("ডেমো: সার্ভার যুক্ত হলে বার্তাটি প্রত্যেকের অ্যাপে নোটিফিকেশন হিসেবে যাবে। এখন কিছু পাঠানো হয়নি।");
-    setTimeout(() => setSending(false), 2500);
+  const send = async () => {
+    setSending(true);
+    const payload = { audience, recipient_ids: picked, title: title.trim(), body: body.trim() };
+    const input = JSON.stringify(payload);
+    if (lastRequest.current?.input !== input) {
+      lastRequest.current = { input, id: crypto.randomUUID() };
+    }
+    try {
+      const result = await sendAdminMessage({ ...payload, client_request_id: lastRequest.current.id });
+      toast(result.message ?? "বার্তা পাঠানো হয়েছে।");
+      if (result.ok) {
+        lastRequest.current = null;
+        setTitle("");
+        setBody("");
+        setPicked([]);
+      }
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -112,10 +126,10 @@ export function MessagesView({ sellers, investors }: { sellers: Person[]; invest
         </section>
         <section className="cd">
           <h2 className="h2" style={{ marginBottom: 4 }}>আগে পাঠানো</h2>
-          {HISTORY.map((h) => (
-            <div key={h.title} className="li">
+          {history.map((h) => (
+            <div key={h.id} className="li">
               <Avatar name={h.title} />
-              <span className="fx"><span className="t1">{h.title}</span><div className="mu">{h.audience} · {bnDigits(h.count)} জন · {h.at}</div></span>
+              <span className="fx"><span className="t1">{h.title}</span><div className="mu">{AUDIENCES.find((a) => a.id === h.audience)?.label} · {bnDigits(h.recipient_count)} জন · {bnDate(h.at, true)}</div></span>
             </div>
           ))}
         </section>

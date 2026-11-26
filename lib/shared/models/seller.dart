@@ -52,6 +52,8 @@ class ApplicationInfo {
     required this.timeline,
     this.adminMessage,
     this.rejectionReason,
+    this.missingDocuments = const [],
+    this.requestedDocuments = const [],
   });
 
   final String id;
@@ -60,6 +62,8 @@ class ApplicationInfo {
   final List<ApplicationTimelineStep> timeline;
   final String? adminMessage;
   final String? rejectionReason;
+  final List<String> missingDocuments;
+  final List<String> requestedDocuments;
 }
 
 class AppNotification {

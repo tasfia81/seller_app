@@ -14,18 +14,15 @@ npm run dev
 
 Open http://localhost:3000 (redirects to `/dashboard`). Production: `npm run build` then `npm start`.
 
-## UI phase — demo data
+## Local FastAPI
 
-- All figures come from `src/lib/demo-data.ts` (clearly labelled demo; no real people or transactions).
-- Actions that need the backend (approve, verify cash, pay, save…) ask for confirmation where needed and then show a
-  "server not connected yet" notice. Nothing is faked as saved or successful.
-- Login accepts any input and opens the dashboard; password recovery never sends or verifies a real code.
+Start the backend before opening the panel. Its default API address is
+`http://127.0.0.1:8000/api/v1`. Set `API_URL` in the Next.js environment if it
+runs on a different address. The backend stores local data in `backend/data/db.json`.
 
-## Investors and messages
-- `/investors` list, `/investors/applications` KYC review, `/investors/[id]` profile
-- `/investments` record investment receipts + split who funded a new batch, `/investor-profit` monthly profit distribution, `/investor-withdrawals` capital returns
-- `/messages` send in-app notifications to sellers/investors (everyone, a group, or specific people)
-- These are demo data too (`src/lib/investors.ts`); the backend API is ready (`backend/README.md`).
+Seller approvals, stock, cash, payouts, investor applications, investment
+receipts, funded batches, monthly profit, withdrawals and in-app messages use
+the backend. The account page uses the signed-in admin's server session.
 
 ## Structure
 
@@ -37,7 +34,5 @@ src/
                    sales, corrections, cash, payouts, returns, settlements,
                    expenses, reports(+performance), activity, settings, account, more
   components/      shell (sidebar, bottom nav, top bar), ui (icons, chips, toast, confirm)
-  lib/             demo-data, format (Bangla digits/money), labels, nav, types
+  lib/             API client, format (Bangla digits/money), labels, nav, types
 ```
-
-To connect the FastAPI backend, replace the imports from `lib/demo-data.ts` with API calls.

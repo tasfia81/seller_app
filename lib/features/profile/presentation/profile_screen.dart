@@ -1,3 +1,4 @@
+import '../../../core/errors/failure.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,6 +17,39 @@ import 'account_screen.dart' show SellerAvatar;
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _requestChange(BuildContext context, WidgetRef ref) async {
+    final repository = ref.read(profileRepositoryProvider);
+    if (repository is! ApiProfileRepository) return;
+    const labels = {'mobile': 'মোবাইল নম্বর', 'present_address': 'বর্তমান ঠিকানা', 'emergency_contact': 'জরুরি যোগাযোগের ব্যক্তির নাম'};
+    var field = 'mobile';
+    var value = '';
+    final request = await showDialog<(String, String)>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(builder: (_, setState) => AlertDialog(
+        title: const Text('তথ্য পরিবর্তনের অনুরোধ'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          DropdownButton<String>(value: field, items: [
+            for (final item in labels.entries) DropdownMenuItem(value: item.key, child: Text(item.value)),
+          ], onChanged: (selected) => setState(() => field = selected ?? field)),
+          TextField(onChanged: (text) => setState(() => value = text.trim()),
+            decoration: const InputDecoration(labelText: 'নতুন তথ্য')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('বন্ধ')),
+          FilledButton(onPressed: value.length < 3 ? null : () => Navigator.pop(dialog, (field, value)),
+            child: const Text('পাঠান')),
+        ],
+      )),
+    );
+    if (request == null || !context.mounted) return;
+    try {
+      await repository.requestChange(request.$1, request.$2);
+      if (context.mounted) showAppSnack(context, 'অনুরোধ অফিসে পাঠানো হয়েছে।');
+    } catch (error) {
+      if (context.mounted) showAppSnack(context, failureMessage(error), error: true);
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,7 +99,7 @@ class ProfileScreen extends ConsumerWidget {
           AppButton(
             label: 'তথ্য পরিবর্তনের অনুরোধ',
             variant: AppButtonVariant.outline,
-            onPressed: () => showAppSnack(context, 'তথ্য পরিবর্তনের অনুরোধ সার্ভার চালু হলে পাঠানো যাবে।'),
+            onPressed: () => _requestChange(context, ref),
           ),
           SizedBox(height: 6.h),
           Text('অ্যাডমিন অনুমোদন দিলে পরিবর্তন কার্যকর হবে', style: AppText.small),

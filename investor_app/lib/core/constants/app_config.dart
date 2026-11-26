@@ -7,11 +7,6 @@ abstract final class AppConfig {
   /// `flutter run --dart-define=API_URL=https://api.example.com/api/v1`
   static const String apiBaseUrl = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8000/api/v1');
 
-  /// Login and sign-up use the real server. The dashboard screens still read
-  /// [DemoInvestorRepository] until they are connected (next phase); actions
-  /// that need the server there say so honestly instead of pretending.
-  static const bool demoMode = true;
-
   /// Business terms shown in the app — confirm with the final contract.
   static const int profitSharePercent = 50;
   static const int sellerCommissionPercent = 40;

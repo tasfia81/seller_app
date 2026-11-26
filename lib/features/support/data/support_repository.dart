@@ -1,3 +1,7 @@
+import '../../../core/api/api_client.dart';
+import '../../../core/api/seller_payload.dart';
+import '../../../core/constants/app_config.dart';
+import '../../auth/data/seller_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/demo/demo_data.dart';
@@ -113,7 +117,49 @@ class PreviewSupportRepository implements SupportRepository {
   }
 }
 
-final supportRepositoryProvider = Provider<SupportRepository>((_) => PreviewSupportRepository());
+final supportRepositoryProvider = Provider<SupportRepository>((ref) => AppConfig.previewAuth
+    ? PreviewSupportRepository()
+    : ApiSupportRepository(ref.watch(sellerSessionProvider).api));
+
+class ApiSupportRepository implements SupportRepository {
+  ApiSupportRepository(this.api);
+  final ApiClient api;
+
+  @override
+  bool get canSend => true;
+
+  SupportThread _parse(Json row) {
+    final updated = date(row, 'updated_at');
+    final messages = [
+      if (row['messages'] is List)
+        for (final m in jsonRows(row['messages']))
+          SupportMessage(fromOffice: m['sender'] == 'admin', text: m['text'] as String,
+            at: date(m, 'at'), author: m['author'] as String),
+      if (row['messages'] == null && row['last_message'] is String)
+        SupportMessage(fromOffice: row['last_from'] == 'admin', text: row['last_message'] as String, at: updated),
+    ];
+    return SupportThread(id: row['id'] as String, topic: row['topic'] as String,
+      topicLabel: row['topic_label'] as String, resolved: row['status'] == 'resolved',
+      updatedAt: updated, messages: messages, unread: number(row, 'unread').toInt());
+  }
+
+  @override
+  Future<List<SupportThread>> myThreads() async =>
+      jsonRows(await api.get('/support/threads')).map(_parse).toList();
+
+  @override
+  Future<SupportThread> open(String id) async =>
+      _parse(jsonMap(await api.get('/support/threads/${Uri.encodeComponent(id)}')));
+
+  Future<SupportThread> send({String? id, required String topic, required String text, required String requestId}) async {
+    final path = id == null ? '/support/threads' : '/support/threads/${Uri.encodeComponent(id)}/messages';
+    return _parse(jsonMap(await api.post(path, {
+      if (id == null) 'topic': topic,
+      'text': text,
+      'client_request_id': requestId,
+    })));
+  }
+}
 
 final supportThreadsProvider = FutureProvider.autoDispose<List<SupportThread>>(
   (ref) => ref.watch(supportRepositoryProvider).myThreads(),

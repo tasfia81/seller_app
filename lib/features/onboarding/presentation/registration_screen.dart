@@ -1,3 +1,4 @@
+import '../../../core/api/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,6 +48,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   // Step 1
   final _name = TextEditingController();
   final _mobile = TextEditingController();
+  final _otp = TextEditingController();
+  bool _requestingOtp = false;
   final _email = TextEditingController();
   final _guardian = TextEditingController();
   DateTime? _dob;
@@ -73,12 +76,31 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _mobile, _email, _guardian, _nid, _emName, _emMobile, _pass, _confirm, ..._scrolls]) {
+    for (final c in [_name, _mobile, _otp, _email, _guardian, _nid, _emName, _emMobile, _pass, _confirm, ..._scrolls]) {
       c.dispose();
     }
     _present.dispose();
     _permanent.dispose();
     super.dispose();
+  }
+
+  Future<void> _requestOtp() async {
+    final error = Validators.mobile(_mobile.text);
+    if (error != null) {
+      showAppSnack(context, error, error: true);
+      return;
+    }
+    final repository = ref.read(onboardingRepositoryProvider);
+    if (repository is! ApiOnboardingRepository) return;
+    setState(() => _requestingOtp = true);
+    try {
+      await repository.requestOtp(Validators.normalizePhone(_mobile.text));
+      if (mounted) showAppSnack(context, 'নম্বরটি উপলব্ধ হলে SMS কোড পাঠানো হবে।');
+    } catch (error) {
+      if (mounted) showAppSnack(context, failureMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _requestingOtp = false);
+    }
   }
 
   bool _validateStep(int s) {
@@ -128,12 +150,17 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       context.go(AppRoutes.applicationSubmitted);
       return;
     }
+    if (!AppConfig.previewAuth && _otp.text.length != 6) {
+      showAppSnack(context, '৬ সংখ্যার SMS কোড দিন।', error: true);
+      return;
+    }
     setState(() => _submitting = true);
     try {
       final present = _present.toAddress();
       await ref.read(onboardingRepositoryProvider).submitApplication(SellerApplication(
             fullName: _name.text.trim(),
             mobile: Validators.normalizePhone(_mobile.text),
+            otpCode: AppConfig.previewAuth ? null : BnFormat.toAscii(_otp.text),
             dateOfBirth: _dob!,
             gender: _gender,
             email: _email.text.trim().isEmpty ? null : _email.text.trim(),
@@ -152,6 +179,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             acceptedTerms: _terms,
           ));
       if (mounted) context.go(AppRoutes.applicationSubmitted);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      showAppSnack(context, error.message, error: true);
     } catch (e) {
       if (mounted) showAppSnack(context, failureMessage(e), error: true);
     } finally {
@@ -170,7 +200,13 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         confirmLabel: 'বের হন',
         cancelLabel: 'থাকুন',
         destructive: true);
-    if (leave && mounted) context.pop();
+    if (leave && mounted) {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.welcome);
+      }
+    }
   }
 
   @override
@@ -497,6 +533,18 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       section('অ্যাকাউন্ট', 3, [
         KeyValueRow('পাসওয়ার্ড', _pass.text.isEmpty ? 'দেওয়া হয়নি' : 'সেট করা হয়েছে', divider: false),
       ]),
+      if (!AppConfig.previewAuth) ...[
+        TextButton(
+          onPressed: _requestingOtp || _submitting ? null : _requestOtp,
+          child: const Text('মোবাইলে SMS কোড পাঠান'),
+        ),
+        AppTextField(
+          label: 'SMS কোড',
+          controller: _otp,
+          keyboardType: TextInputType.number,
+          inputFormatters: [..._digitsOnly, LengthLimitingTextInputFormatter(6)],
+        ),
+      ],
       SizedBox(height: 4.h),
       CheckRow(
         value: _privacy,

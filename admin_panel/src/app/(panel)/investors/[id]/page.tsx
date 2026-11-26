@@ -1,147 +1,59 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Suspense } from "react";
-import { PageLoading } from "@/components/shell/PageLoading";
 import { Topbar } from "@/components/shell/Topbar";
-import { Icon } from "@/components/ui/Icon";
-import { Avatar, Chip, KV, Kpi, Note, StatusChip } from "@/components/ui/bits";
-import { ActionButton, Tabs } from "@/components/ui/feedback";
-import { bnDigits, money } from "@/lib/format";
-import { activeCapital, inStock, investorById, investorStatus, investors } from "@/lib/investors";
+import { KV, Note } from "@/components/ui/bits";
+import { ApiForm } from "@/components/ui/ApiForm";
+import { api, load } from "@/lib/api/server";
+import { bnDate, money } from "@/lib/format";
+import { submitOperation } from "../../operational-actions";
 
-export function generateStaticParams() {
-  return investors.map((i) => ({ id: i.id }));
-}
-
-export async function generateMetadata(props: PageProps<"/investors/[id]">) {
-  const { id } = await props.params;
-  return { title: investorById(id)?.name ?? "বিনিয়োগকারী" };
-}
-
-export default function InvestorProfilePage(props: PageProps<"/investors/[id]">) {
-  return (
-    <Suspense fallback={<PageLoading title="বিনিয়োগকারী" />}>
-      <InvestorProfile params={props.params} />
-    </Suspense>
-  );
-}
-
-const KIND: Record<string, [string, "ok" | "wa" | "inf"]> = {
-  invest: ["বিনিয়োগ", "inf"],
-  profit: ["লাভ প্রদান", "ok"],
-  withdraw: ["মূলধন ফেরত", "wa"],
+type Investor = { id: string; name: string; code: string; mobile: string; nid_masked: string; status: string;
+  status_label: string; preference: string; terms: { share_percent: number; payout_day: number; notice_days: number };
+  payout: { method_label: string; account_masked: string }; nominee: { name: string; relation: string; mobile: string };
+  position: { active_capital: number; in_stock: number; uninvested: number; profit_total: number };
+  holdings: { lot_id: string; product_name: string; batch: string; invested: number; share: number }[];
+  transactions: { id: string; label: string; amount: number; receipt: string; at: string }[];
+  withdrawals: { id: string; amount: number; status_label: string }[];
 };
 
-async function InvestorProfile({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvestorProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const inv = investorById(id);
-  if (!inv) notFound();
-  const kistis = inv.ledger.filter((l) => l.kind === "invest").length;
-
-  return (
-    <>
-      <Topbar title={inv.name} back="/investors" crumb={{ href: "/investors", label: "বিনিয়োগকারী" }}>
-        <Link className="btn sm" href="/investments"><Icon name="plus" size={18} />নতুন কিস্তি রেকর্ড</Link>
-      </Topbar>
-      <main className="ct">
-        <section className="cd" style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-          <Avatar name={inv.name} size={60} />
-          <div className="fx">
-            <div style={{ fontSize: 19, fontWeight: 700 }}>{inv.name}</div>
-            <div className="mu">{inv.code} · যোগ দিয়েছেন {inv.since} · {inv.mobileMasked}</div>
-          </div>
-          <StatusChip value={investorStatus[inv.status]} />
-          <Chip tone="ok">KYC যাচাইকৃত</Chip>
-          <Chip tone="ok">চুক্তি সই হয়েছে</Chip>
+  const result = await load(() => api.get<Investor>(`/admin/investors/${encodeURIComponent(id)}`));
+  const row = result.data;
+  return <>
+    <Topbar title={row?.name ?? "বিনিয়োগকারী"} back="/investors" />
+    <main className="ct">{!row ? <Note kind="warn">{result.error}</Note> : <>
+      <div className="two">
+        <section className="cd a">
+          <h2 className="h2">প্রোফাইল · {row.code}</h2>
+          <KV label="অবস্থা">{row.status_label}</KV><KV label="মোবাইল">{row.mobile}</KV><KV label="NID">{row.nid_masked}</KV>
+          <KV label="পরিশোধের মাধ্যম">{row.payout.method_label} {row.payout.account_masked}</KV>
+          <KV label="নমিনি">{row.nominee.name} · {row.nominee.relation} · {row.nominee.mobile}</KV>
+          <KV label="সক্রিয় মূলধন">{money(row.position.active_capital)}</KV>
+          <KV label="স্টকে খাটছে">{money(row.position.in_stock)}</KV>
+          <KV label="খাটেনি">{money(row.position.uninvested)}</KV>
+          <KV label="মোট লাভ">{money(row.position.profit_total)}</KV>
+          <ApiForm label="অ্যাকাউন্টের অবস্থা বদলান" action={submitOperation.bind(null, "investor-status", id)} confirm="অ্যাকাউন্টের অবস্থা বদলাবেন?">
+            <input type="hidden" name="status" value={row.status === "suspended" ? "active" : "suspended"} />
+            <label>কারণ<input className="in" name="reason" minLength={3} required /></label>
+          </ApiForm>
         </section>
-
-        <div className="kpis">
-          <Kpi label="মোট দিয়েছেন" value={money(inv.invested)} note={kistis ? `${bnDigits(kistis)} কিস্তিতে` : undefined} />
-          <Kpi label="সক্রিয় মূলধন" value={money(activeCapital(inv))} note={`ফেরত দেওয়া ${money(inv.withdrawn)}`} />
-          <Kpi label="স্টকে খাটছে" value={money(inStock(inv))} />
-          <Kpi label="খাটেনি" value={money(inv.uninvested)} note="লাগানো বাকি" tone="warn" />
-          <Kpi label="মোট লাভ" value={money(inv.profitTotal)} note={`দেওয়া ${money(inv.profitPaid)} · এ মাসে ${money(inv.profitThisMonth)}`} tone="good" />
-        </div>
-
-        <Tabs label="বিনিয়োগকারীর তথ্য" tabs={[{ id: "where", label: "কোথায় টাকা" }, { id: "ledger", label: "লেনদেন" }, { id: "kyc", label: "KYC ও কাগজ" }, { id: "audit", label: "অডিট" }]} />
-
-        <div className="two">
-          <div className="a">
-            {inv.holdings.length ? (
-              <div className="tw">
-                <table>
-                  <thead><tr><th>প্রোডাক্ট (ব্যাচ)</th><th className="n">বিনিয়োগ</th><th className="n">কেনা</th><th>বিক্রি</th><th className="n">সেলারের হাতে</th><th className="n">ওনার লাভ</th></tr></thead>
-                  <tbody>
-                    {inv.holdings.map((h) => {
-                      const pct = Math.round((h.sold / h.bought) * 100);
-                      return (
-                        <tr key={h.batch}>
-                          <td><b>{h.product}</b><div className="mu">{h.batch}</div></td>
-                          <td className="n">{money(h.bought * h.unitCost)}</td>
-                          <td className="n">{bnDigits(h.bought)}</td>
-                          <td style={{ minWidth: 150 }}><div className="bar"><i style={{ width: `${pct}%` }} /></div><span className="mu">{bnDigits(h.sold)} · {bnDigits(pct)}%</span></td>
-                          <td className="n">{bnDigits(h.withSellers)}</td>
-                          <td className="n"><b>{money(h.share)}</b></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <Note>ডেমো ডেটায় এই বিনিয়োগকারীর প্রোডাক্টভিত্তিক হিসাব নেই। ব্যাকএন্ড যুক্ত হলে এখানে আসল তালিকা দেখাবে।</Note>
-            )}
-            {inv.id === "ashraful" ? (
-              <Note kind="warn" icon="alert">জার্সির ৬ পিস নষ্ট হিসেবে জমা — তদন্ত চলছে। ক্ষতি (৳২,১০০) ঠিক হলে ওনার হিসাবে যোগ হবে এবং অ্যাপে নোটিফিকেশন যাবে।</Note>
-            ) : null}
-            {inv.ledger.length ? (
-              <section className="cd">
-                <h2 className="h2" style={{ marginBottom: 6 }}>লেনদেন</h2>
-                <div className="tw" style={{ border: 0 }}>
-                  <table style={{ minWidth: 560 }}>
-                    <thead><tr><th>তারিখ</th><th>ধরন</th><th className="n">টাকা</th><th>মাধ্যম</th><th>রসিদ</th></tr></thead>
-                    <tbody>
-                      {inv.ledger.map((l) => (
-                        <tr key={l.ref}>
-                          <td>{l.date}</td>
-                          <td><Chip tone={KIND[l.kind][1]}>{l.label}</Chip></td>
-                          <td className="n">{l.kind === "withdraw" ? "−" : ""}{money(l.amount)}</td>
-                          <td>{l.via}</td>
-                          <td className="mu">{l.ref}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            ) : null}
-          </div>
-          <div className="b">
-            <section className="cd">
-              <div className="sh" style={{ marginBottom: 4 }}><h2 className="h2">চুক্তির শর্ত</h2><ActionButton className="btn g sm">বদলান</ActionButton></div>
-              <KV label="লাভের ভাগ">নিট লাভের {bnDigits(inv.sharePercent)}%</KV>
-              <KV label="লাভ দেওয়ার দিন">প্রতি মাসের ৫ তারিখ</KV>
-              <KV label="মূলধন ফেরতের নোটিশ">৩০ দিন</KV>
-              <KV label="লাভ নেওয়া">{inv.preference === "cash" ? "প্রতি মাসে টাকা" : "আবার বিনিয়োগ"}</KV>
-              <div className="mu" style={{ marginTop: 6 }}>শর্ত বদলালে শুধু পরের কিস্তি থেকে কার্যকর হবে, নতুন চুক্তিতে উভয়ের সই লাগবে।</div>
-            </section>
-            <section className="cd">
-              <h2 className="h2" style={{ marginBottom: 4 }}>টাকার মাধ্যম ও নমিনি</h2>
-              <KV label="লাভ">{inv.profitVia}</KV>
-              <KV label="মূলধন ফেরত">{inv.capitalVia}</KV>
-              <KV label="নমিনি">{inv.nominee}</KV>
-            </section>
-            <section className="cd" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <h2 className="h2">অ্যাকাউন্ট নিয়ন্ত্রণ</h2>
-              <Link className="btn o" href="/messages"><Icon name="bell" size={18} />বার্তা পাঠান (অ্যাপে)</Link>
-              <ActionButton className="btn g">নতুন স্টকে টাকা লাগানো বন্ধ রাখুন</ActionButton>
-              <ActionButton className="btn r" confirm={{ title: "অ্যাকাউন্ট স্থগিত করবেন?", message: "উনি শুধু হিসাব দেখতে পারবেন; লাভ ও ফেরত নিয়ম অনুযায়ী চলতে থাকবে।", label: "স্থগিত করুন", danger: true }}>
-                অ্যাকাউন্ট স্থগিত করুন
-              </ActionButton>
-            </section>
-          </div>
-        </div>
-      </main>
-    </>
-  );
+        <section className="cd b">
+          <h2 className="h2">চুক্তির শর্ত</h2>
+          <ApiForm label="শর্ত সংরক্ষণ" action={submitOperation.bind(null, "investor-terms", id)}>
+            <label>লাভের ভাগ (%)<input className="in" name="share_percent" type="number" min="0.01" max="99.99" step="0.01" required defaultValue={row.terms.share_percent} /></label>
+            <label>পরিশোধের দিন<input className="in" name="payout_day" type="number" min={1} max={28} required defaultValue={row.terms.payout_day} /></label>
+            <label>নোটিশের দিন<input className="in" name="notice_days" type="number" min={0} max={180} required defaultValue={row.terms.notice_days} /></label>
+          </ApiForm>
+        </section>
+      </div>
+      <section className="cd"><h2 className="h2">পণ্য ও ব্যাচ</h2>
+        {row.holdings.map((holding) => <KV key={holding.lot_id} label={`${holding.product_name} · ${holding.batch}`}>{money(holding.invested)} · লাভ {money(holding.share)}</KV>)}
+      </section>
+      <section className="cd"><h2 className="h2">লেনদেন</h2>
+        {row.transactions.map((tx) => <KV key={tx.id} label={`${tx.label} · ${tx.receipt} · ${bnDate(tx.at)}`}>{money(tx.amount)}</KV>)}
+      </section>
+      <section className="cd"><h2 className="h2">মূলধন ফেরত</h2>
+        {row.withdrawals.map((wd) => <KV key={wd.id} label={wd.status_label}>{money(wd.amount)}</KV>)}
+      </section>
+    </>}</main>
+  </>;
 }

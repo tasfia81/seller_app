@@ -57,6 +57,7 @@ def overview(tx: Tx, seller_id: str) -> dict[str, Any]:
         "assignments": [{"id": a["id"], "status": a["status"], "created_at": a["created_at"], "items": a["items"]} for a in assigns],
         "cash": cash_summary(tx, seller_id),
         "earnings": earnings_summary(tx, seller_id),
+        "profile_requests": tx.find("profile_requests", lambda row: row["seller_id"] == seller_id),
     }
 
 
@@ -144,3 +145,31 @@ def request_profile_change(tx: Tx, seller: dict[str, Any], data: ProfileChangeIn
     tx.put("profile_requests", doc)
     notify(tx, "admin", "profile_change", "তথ্য পরিবর্তনের অনুরোধ", f"{seller['name']} · {data.field}", f"/sellers/{seller['id']}")
     return doc
+
+
+def decide_profile_change(tx: Tx, admin: dict[str, Any], seller_id: str, request_id: str, approve: bool) -> dict[str, Any]:
+    request = require(tx, "profile_requests", request_id, "অনুরোধ পাওয়া যায়নি।")
+    if request["seller_id"] != seller_id or request["status"] != "pending":
+        raise Conflict("এই অনুরোধ এখন সিদ্ধান্তের জন্য উপলব্ধ নয়।")
+    s = require(tx, SELLERS, seller_id, "সেলার পাওয়া যায়নি।")
+    if approve:
+        field = request["field"]
+        value = request["new_value"]
+        if field == "emergency_contact":
+            emergency = dict(s["emergency"])
+            emergency["name"] = value
+            s["emergency"] = emergency
+            tx.put(SELLERS, s)
+        else:
+            try:
+                update = SellerUpdateIn(**{field: value})
+            except ValueError as exc:
+                raise AppError("নতুন তথ্য সঠিক নয়।", code="invalid_profile_change") from exc
+            update_seller(tx, admin, seller_id, update)
+    request["status"] = "approved" if approve else "rejected"
+    request["decided_at"] = now_iso()
+    tx.put("profile_requests", request)
+    audit(tx, admin, "seller.profile_request." + request["status"], request_id, request["field"])
+    title = "প্রোফাইলের পরিবর্তন অনুমোদিত" if approve else "প্রোফাইলের পরিবর্তনের অনুরোধ বাতিল"
+    notify(tx, f"seller:{seller_id}", "profile_change", title, "বিস্তারিত আপনার প্রোফাইলে দেখুন।")
+    return request

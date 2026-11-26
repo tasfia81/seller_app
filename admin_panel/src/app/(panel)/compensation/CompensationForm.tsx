@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Note } from "@/components/ui/bits";
-import { ActionButton } from "@/components/ui/feedback";
+import { ConfirmDialog, useToast } from "@/components/ui/feedback";
 import { bnDigits, money, parseMoney } from "@/lib/format";
 import type { CompensationModel } from "@/lib/types";
-import { sellers } from "@/lib/demo-data";
+import { saveCompensation } from "./actions";
 
 const MODELS: { id: CompensationModel; title: string; text: string }[] = [
   { id: "profit", title: "লাভের ভাগ", text: "প্রতিটি বিক্রির লাভের নির্দিষ্ট শতাংশ" },
@@ -14,14 +14,19 @@ const MODELS: { id: CompensationModel; title: string; text: string }[] = [
   { id: "hybrid", title: "মিশ্র", text: "মজুরি + পিস বোনাস বা লাভের ভাগ" },
 ];
 
-export function CompensationForm() {
-  const [seller, setSeller] = useState("rakib");
+export type CompensationSeller = { id: string; status: string; name: string; mobile: string; compensation: string };
+
+export function CompensationForm({ sellers, selected }: { sellers: CompensationSeller[]; selected: string }) {
+  const toast = useToast();
+  const [confirm, setConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const seller = selected;
   const [model, setModel] = useState<CompensationModel>("profit");
   const [percent, setPercent] = useState("৫০");
   const [wage, setWage] = useState("৫০০");
   const [perUnit, setPerUnit] = useState("২৫");
   const [reason, setReason] = useState("");
-  const [effective, setEffective] = useState("2026-12-01");
+  const [effective, setEffective] = useState("");
 
   const pct = parseMoney(percent);
   const pctError = model === "profit" || model === "hybrid" ? (pct === null || pct <= 0 || pct > 100 ? "১ থেকে ১০০-এর মধ্যে শতাংশ দিন।" : null) : null;
@@ -31,7 +36,27 @@ export function CompensationForm() {
     model === "daily" ? `দৈনিক ${money(parseMoney(wage) ?? 0)}` :
     model === "perUnit" ? `প্রতি পিসে ${money(parseMoney(perUnit) ?? 0)}` :
     `দৈনিক ${money(parseMoney(wage) ?? 0)} + লাভের ${bnDigits(pct ?? 0)}%`;
-  const canSave = !pctError && reason.trim().length > 0;
+  const canSave = !!current && !pctError && !!effective && reason.trim().length >= 3
+    && (!(model === "daily" || model === "hybrid") || (parseMoney(wage) ?? 0) > 0)
+    && (model !== "perUnit" || (parseMoney(perUnit) ?? 0) > 0);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const result = await saveCompensation(seller, {
+        model: model === "perUnit" ? "per_unit" : model,
+        profit_percent: model === "profit" || model === "hybrid" ? pct : null,
+        daily_wage: model === "daily" || model === "hybrid" ? parseMoney(wage) : null,
+        per_unit: model === "perUnit" ? parseMoney(perUnit) : null,
+        effective_from: effective,
+        reason: reason.trim(),
+      });
+      toast(result.message ?? "আয়ের নিয়ম সংরক্ষিত হয়েছে।");
+      if (result.ok) setReason("");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <section className="cd" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -41,7 +66,7 @@ export function CompensationForm() {
       </div>
       <div className="f" style={{ maxWidth: 360 }}>
         <label htmlFor="sl">সেলার</label>
-        <select id="sl" className="in" value={seller} onChange={(e) => setSeller(e.target.value)}>
+        <select id="sl" className="in" value={seller} onChange={(e) => window.location.assign(`/compensation?seller=${encodeURIComponent(e.target.value)}`)}>
           {sellers.filter((s) => s.status !== "inactive").map((s) => <option key={s.id} value={s.id}>{s.name} · {s.mobile}</option>)}
         </select>
       </div>
@@ -88,9 +113,13 @@ export function CompensationForm() {
       </div>
       <Note kind="warn"><b>নিশ্চিত করুন:</b> {current?.compensation} → {newRule} · {bnDigits(effective)} থেকে কার্যকর · আগের অর্জিত আয় যেমন আছে তেমন থাকবে।</Note>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <ActionButton disabled={!canSave} confirm={{ title: "আয়ের নিয়ম বদলাবেন?", message: `${current?.name}: ${newRule}। এটা অডিট লগে থাকবে।`, label: "সংরক্ষণ করুন" }}>
+        <button type="button" className="btn" disabled={!canSave || saving} onClick={() => setConfirm(true)}>
           নিয়ম সংরক্ষণ করুন
-        </ActionButton>
+        </button>
+        <ConfirmDialog open={confirm} title="আয়ের নিয়ম বদলাবেন?"
+          message={`${current?.name}: ${newRule}। এটা অডিট লগে থাকবে।`}
+          confirmLabel="সংরক্ষণ করুন" onConfirm={save} onClose={() => setConfirm(false)} />
+
       </div>
     </section>
   );

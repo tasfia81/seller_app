@@ -65,6 +65,12 @@ class ApiClient {
         body: jsonEncode(body ?? const {}),
       ));
 
+  Future<dynamic> put(String path, Object body) => _send(() => _http.put(
+        _uri(path),
+        headers: {..._headers, 'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ));
+
   /// Uploads one image as multipart `file` (type is read from the bytes).
   Future<dynamic> upload(String path, Uint8List bytes, {required String name}) {
     final (sub, ext) = imageType(bytes);

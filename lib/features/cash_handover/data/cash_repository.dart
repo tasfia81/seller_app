@@ -1,6 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/demo/demo_data.dart';
+import '../../../core/api/api_client.dart';
+import '../../../core/api/seller_payload.dart';
+import '../../../core/constants/app_config.dart';
+import '../../auth/data/seller_session.dart';
 import '../../../core/errors/failure.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/finance.dart';
@@ -54,6 +58,40 @@ class PreviewCashRepository implements CashRepository {
   }
 }
 
-final cashRepositoryProvider = Provider<CashRepository>((_) => PreviewCashRepository());
+final cashRepositoryProvider = Provider<CashRepository>((ref) => AppConfig.previewAuth
+    ? PreviewCashRepository()
+    : ApiCashRepository(ref.watch(sellerSessionProvider).api));
 final cashSummaryProvider = FutureProvider.autoDispose((ref) => ref.watch(cashRepositoryProvider).getSummary());
 final cashHistoryProvider = FutureProvider.autoDispose((ref) => ref.watch(cashRepositoryProvider).getHistory());
+
+class ApiCashRepository implements CashRepository {
+  ApiCashRepository(this.api);
+  final ApiClient api;
+
+  Future<Json> _cash() async => jsonMap(await api.get('/seller/cash'));
+
+  CashHandover _handover(Json row) => CashHandover(
+    id: row['id'] as String, amount: number(row, 'amount'),
+    method: HandoverMethod.values.asNameMap()[row['method']] ?? HandoverMethod.inPerson,
+    submittedAt: date(row, 'submitted_at'), status: parseRequest(row['status']),
+    reference: row['reference'] as String?,
+  );
+
+  @override
+  Future<CashSummary> getSummary() async {
+    final row = jsonMap((await _cash())['summary']);
+    return CashSummary(collected: number(row, 'collected'), verified: number(row, 'verified'),
+      pendingVerification: number(row, 'pending_verification'), remaining: number(row, 'to_submit'));
+  }
+
+  @override
+  Future<List<CashHandover>> getHistory() async =>
+      jsonRows((await _cash())['history']).map(_handover).toList();
+
+  @override
+  Future<CashHandover> submit({required double amount, required HandoverMethod method, String? reference, String? note}) async =>
+      _handover(jsonMap(await api.post('/seller/cash/handovers', {
+        'amount': amount, 'method': method == HandoverMethod.inPerson ? 'in_person' : method.name,
+        'reference': reference, 'note': note,
+      })));
+}

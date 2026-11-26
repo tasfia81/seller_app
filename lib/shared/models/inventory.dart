@@ -42,6 +42,7 @@ class StockReturnDraft {
     required this.quantity,
     required this.reason,
     this.note,
+    this.variant,
     this.photoPath,
   });
 
@@ -49,5 +50,6 @@ class StockReturnDraft {
   final double quantity;
   final ReturnReason reason;
   final String? note;
+  final String? variant;
   final String? photoPath;
 }

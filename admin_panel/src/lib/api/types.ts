@@ -124,6 +124,7 @@ export interface ApiSellerOverview {
     permissions: { can_edit_price: boolean; can_discount: boolean; can_take_digital: boolean };
     joined_at: string;
   };
+  profile_requests: { id: string; field: string; new_value: string; status: string; at: string }[];
   compensation: { label: string; effective_from?: string; model: string };
   kpis: { today_sales: number; month_sales: number; assigned: number; available: number; cash_due: number; earnings_payable: number };
   assignments: { id: string; status: string; created_at: string; items: { product_id: string; variant: string | null; name: string; quantity: number; sold: number; returned: number }[] }[];

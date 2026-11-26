@@ -8,11 +8,12 @@ from fastapi.responses import FileResponse
 
 from ..core.deps import AdminDep, StoreDep
 from ..core.utils import period_range, today
+from ..core.errors import NotFound
 from ..schemas import (AdminNoteIn, AssignmentIn, CategoryIn, CompensationIn, DamageIn, ExceptionIn, ExpenseIn, PayoutIn, ProductIn, ProductUpdateIn,
                        RequestInfoIn, ReturnApproveIn, ReviewRejectIn, SellerUpdateIn, SettingsIn, StockReceiptIn, TransferIn, VerifyHandoverIn)
 from ..services import applications, catalog, finance, inventory, reports, sales, sellers, settlements, system
-from ..services.common import ASSIGNMENTS, DAMAGES, PRODUCTS, SELLERS, require
-from .uploads import resolve
+from ..services.common import ASSIGNMENTS, DAMAGES, PRODUCTS, RETURNS, SELLERS, require
+from .uploads import ALLOWED, resolve
 
 router = APIRouter(prefix="/admin", tags=["অ্যাডমিন (Admin)"])
 Period = Literal["today", "yesterday", "last7", "month", "custom"]
@@ -114,6 +115,12 @@ def list_sellers(admin: AdminDep, store: StoreDep, status: Literal["active", "in
 def seller_overview(seller_id: str, admin: AdminDep, store: StoreDep):
     with store.transaction() as tx:
         return sellers.overview(tx, seller_id)
+
+
+@router.post("/sellers/{seller_id}/profile-requests/{request_id}/{decision}")
+def decide_profile_request(seller_id: str, request_id: str, decision: Literal["approve", "reject"], admin: AdminDep, store: StoreDep):
+    with store.transaction() as tx:
+        return sellers.decide_profile_change(tx, admin, seller_id, request_id, decision == "approve")
 
 
 @router.patch("/sellers/{seller_id}", summary="সেলারের তথ্য সম্পাদনা")
@@ -282,6 +289,17 @@ def close_assignment(assignment_id: str, admin: AdminDep, store: StoreDep):
 def list_returns(admin: AdminDep, store: StoreDep, status: Literal["pending", "approved", "rejected", "completed"] | None = None):
     with store.transaction() as tx:
         return inventory.list_returns(tx, status=status)
+
+
+@router.get("/returns/{return_id}/photo")
+def return_photo(return_id: str, admin: AdminDep, store: StoreDep):
+    with store.transaction() as tx:
+        record = require(tx, RETURNS, return_id, "ফেরতের অনুরোধ পাওয়া যায়নি।")
+    if not record.get("photo"):
+        raise NotFound("ছবি পাওয়া যায়নি।")
+    path = resolve(record["photo"])
+    media = next((mime for mime, ext in ALLOWED.items() if path.suffix == f".{ext}"), "application/octet-stream")
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "no-store, private"})
 
 
 @router.post("/returns/{return_id}/approve", summary="অনুমোদন (স্টক এখনো সরবে না)")

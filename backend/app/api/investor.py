@@ -4,10 +4,12 @@ from typing import Literal
 
 from fastapi import APIRouter, File, UploadFile
 
+from ..core.config import settings
 from ..core.deps import InvestorDep, StoreDep, UserDep
-from ..core.errors import Forbidden
+from ..core.errors import AppError, Forbidden
+from ..schemas import OtpRequestIn, OtpVerifyIn
 from ..schemas_investor import InvestorApplicationIn, MobileCheckIn, PreferenceIn, WithdrawalRequestIn
-from ..services import auth, investors, system
+from ..services import auth, investors, password_recovery, system
 from .uploads import save_image
 
 router = APIRouter(prefix="/investor", tags=["বিনিয়োগকারী অ্যাপ (Investor)"])
@@ -21,12 +23,31 @@ def mobile_check(body: MobileCheckIn, store: StoreDep):
         return investors.mobile_available(tx, body.mobile)
 
 
+@router.post("/application/otp")
+def request_application_otp(body: OtpRequestIn, store: StoreDep):
+    password_recovery.request(store, body.mobile, signup=True, role="investor")
+
+
+@router.post("/password/otp")
+def request_password_otp(body: OtpRequestIn, store: StoreDep):
+    password_recovery.request(store, body.mobile, role="investor")
+
+
+@router.post("/password/reset")
+def reset_password(body: OtpVerifyIn, store: StoreDep):
+    password_recovery.reset(store, body.mobile, body.code, body.new_password, role="investor")
+
+
 @router.post("/applications", status_code=201, summary="বিনিয়োগকারী হিসেবে আবেদন")
 def submit_application(body: InvestorApplicationIn, store: StoreDep):
     with store.transaction() as tx:
-        created = investors.submit_application(tx, body)
-    with store.transaction() as tx:
-        session = auth.login(tx, body.mobile, body.password)
+        require_otp = bool(settings.bulksmsbd_api_key) or settings.storage == "firestore"
+        verified = not require_otp or password_recovery.verify_signup(tx, body.mobile, body.otp_code, role="investor")
+        if verified:
+            created = investors.submit_application(tx, body)
+            session = auth.login(tx, body.mobile, body.password)
+    if not verified:
+        raise AppError("কোডটি ভুল অথবা মেয়াদ শেষ হয়েছে।", code="invalid_otp")
     return {**created, **session, "message": "আবেদন জমা হয়েছে। এখন NID-এর দুই পাশ ও সেলফি আপলোড করুন।"}
 
 
@@ -59,6 +80,11 @@ def resubmit(user: UserDep, store: StoreDep):
 
 
 # ---------- money picture ----------
+@router.get("/profile", summary="আমার বিনিয়োগকারী প্রোফাইল")
+def profile(ctx: InvestorDep):
+    return investors.self_profile(ctx.investor)
+
+
 @router.get("/dashboard", summary="হোম: মূলধন, লাভ, আজকের বিক্রি")
 def dashboard(ctx: InvestorDep, store: StoreDep):
     with store.transaction() as tx:

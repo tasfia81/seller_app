@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,12 +20,18 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(summaryProvider);
-    final holdings = ref.watch(holdingsProvider);
-    final sellers = ref.watch(sellersProvider);
+    final sState = ref.watch(summaryProvider);
+    final holdingsState = ref.watch(holdingsProvider);
+    final sellersState = ref.watch(sellersProvider);
+    if (!sState.hasValue) return ApiStatus(sState, onRetry: () => ref.invalidate(summaryProvider));
+    final s = sState.valueOrNull!;
+    if (!holdingsState.hasValue) return ApiStatus(holdingsState, onRetry: () => ref.invalidate(holdingsProvider));
+    final holdings = holdingsState.valueOrNull!;
+    if (!sellersState.hasValue) return ApiStatus(sellersState, onRetry: () => ref.invalidate(sellersProvider));
+    final sellers = sellersState.valueOrNull!;
 
-    final fastest = holdings.reduce((a, b) => a.soldRatio >= b.soldRatio ? a : b);
-    final topSeller = sellers.reduce((a, b) => a.soldToday >= b.soldToday ? a : b);
+    final fastest = holdings.isEmpty ? null : holdings.reduce((a, b) => a.soldRatio >= b.soldRatio ? a : b);
+    final topSeller = sellers.isEmpty ? null : sellers.reduce((a, b) => a.soldToday >= b.soldToday ? a : b);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -59,14 +66,14 @@ class HomeScreen extends ConsumerWidget {
                     child: SectionHeader('ব্যবসার খবর',
                         action: 'রিপোর্ট', onAction: () => context.go(AppRoutes.report)),
                   ),
-                  _InsightRow(
+                  if (fastest != null) _InsightRow(
                     icon: Icons.checkroom_outlined,
                     label: 'সবচেয়ে দ্রুত বিক্রি',
                     value: '${fastest.shortName} · ${pct(fastest.soldRatio * 100, decimals: 0)}',
                     trend: const [24, 20, 22, 14, 16, 9, 11, 4],
                     onTap: () => context.push(AppRoutes.productOf(fastest.id)),
                   ),
-                  _InsightRow(
+                  if (topSeller != null) _InsightRow(
                     icon: Icons.person_outline_rounded,
                     label: 'আজকের সেরা সেলার',
                     value: '${topSeller.name} · ${bn(topSeller.soldToday)} পিস',

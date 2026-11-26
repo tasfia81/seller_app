@@ -138,12 +138,12 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                 value: state.quantity,
                 step: p.unit.step,
                 min: p.unit.step,
-                max: p.availableQty,
+                max: state.availableQty,
                 onChanged: ctrl.setQuantity,
               ),
               SizedBox(height: 8.h),
               ChoicePills<double>(
-                options: p.unit.presets.where((q) => q <= p.availableQty).toList(),
+                options: p.unit.presets.where((q) => q <= state.availableQty).toList(),
                 selected: state.quantity,
                 labelOf: (q) => BnFormat.qty(q),
                 scrollable: true,
@@ -181,7 +181,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
               SizedBox(height: 16.h),
               const FieldLabel('পেমেন্ট'),
               ChoicePills<PaymentMethod>(
-                options: PaymentMethod.values,
+                options: p.paymentMethods,
                 selected: state.payment,
                 labelOf: (m) => m.label,
                 equalWidth: true,
@@ -226,7 +226,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                     Text('বিক্রির পর স্টক', style: AppText.caption),
                     Text(
-                      qtyWithUnit((p.availableQty - state.quantity).clamp(0, double.infinity), p),
+                      qtyWithUnit((state.availableQty - state.quantity).clamp(0, double.infinity), p),
                       style: AppText.bodyStrong,
                     ),
                   ]),

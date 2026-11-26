@@ -1,3 +1,7 @@
+import '../../../core/api/seller_payload.dart';
+import '../../../core/errors/failure.dart';
+import '../../../core/widgets/dialogs.dart';
+import '../../products/data/product_repository_impl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -21,6 +25,7 @@ class MyInventoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(inventorySummaryProvider);
     final movements = ref.watch(stockMovementsProvider);
+    final pending = ref.watch(pendingAssignmentsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('আমার স্টক')),
       body: AsyncValueView<InventorySummary>(
@@ -29,6 +34,7 @@ class MyInventoryScreen extends ConsumerWidget {
         data: (s) => RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(stockMovementsProvider);
+            ref.invalidate(pendingAssignmentsProvider);
             ref.invalidate(inventorySummaryProvider);
             await ref.read(inventorySummaryProvider.future);
           },
@@ -63,6 +69,19 @@ class MyInventoryScreen extends ConsumerWidget {
                 ('বিতর্কিত', s.disputed, null, false),
               ]),
               SizedBox(height: 16.h),
+              pending.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (error, _) => ErrorView(error: error, onRetry: () => ref.invalidate(pendingAssignmentsProvider)),
+                data: (rows) => Column(children: [
+                  for (final row in rows)
+                    AppCard(child: Column(children: [
+                      Text('অপেক্ষমাণ বরাদ্দ · ${row['id']}', style: AppText.bodyStrong),
+                      for (final item in jsonRows(row['items']))
+                        Text('${item['name']} · ${BnFormat.qty(number(item, 'quantity'))}'),
+                      AppButton(label: 'স্টক হাতে পেয়েছি', onPressed: () => _accept(context, ref, row['id'] as String)),
+                    ])),
+                ]),
+              ),
               Text('স্টকের আসা-যাওয়া', style: AppText.section),
               SizedBox(height: 8.h),
               movements.when(
@@ -91,6 +110,24 @@ class MyInventoryScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _accept(BuildContext context, WidgetRef ref, String id) async {
+    final repository = ref.read(inventoryRepositoryProvider);
+    if (repository is! ApiInventoryRepository) return;
+    final confirmed = await showConfirmDialog(context, title: 'স্টক হাতে পেয়েছেন?',
+      message: 'পণ্য গুনে মিলিয়ে নিশ্চিত করুন।', confirmLabel: 'পেয়েছি', cancelLabel: 'ফিরে যান');
+    if (!confirmed || !context.mounted) return;
+    try {
+      await repository.api.post('/seller/assignments/${Uri.encodeComponent(id)}/accept');
+      if (!context.mounted) return;
+      ref.invalidate(pendingAssignmentsProvider);
+      ref.invalidate(inventorySummaryProvider);
+      ref.invalidate(stockMovementsProvider);
+      ref.invalidate(assignedProductsProvider);
+    } catch (error) {
+      if (context.mounted) showAppSnack(context, failureMessage(error), error: true);
+    }
   }
 
   Widget _grid(List<(String, double, Color?, bool)> items) {

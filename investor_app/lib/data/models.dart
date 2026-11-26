@@ -16,6 +16,9 @@ class PortfolioSummary {
     required this.todayPieces,
     required this.todayAmount,
     required this.unreadUpdates,
+    this.inStock,
+    this.preference = "cash",
+    this.noticeDays = 30,
   });
 
   final String investorName;
@@ -31,6 +34,9 @@ class PortfolioSummary {
   final int todayPieces;
   final int todayAmount;
   final int unreadUpdates;
+  final int? inStock;
+  final String preference;
+  final int noticeDays;
 
   int get activeCapital => totalInvested - withdrawn;
   double get returnPercent => totalInvested == 0 ? 0 : totalProfit * 100 / totalInvested;
@@ -64,6 +70,14 @@ class ProductHolding {
     required this.batch,
     required this.purchasedOn,
     required this.sellers,
+    this.productId,
+    this.remainingValue,
+    this.reportedInvested,
+    this.reportedRevenue,
+    this.reportedCost,
+    this.reportedCommission,
+    this.reportedNet,
+    this.reportedShare,
   });
 
   final String id;
@@ -82,16 +96,21 @@ class ProductHolding {
   final String purchasedOn;
   final List<SellerShare> sellers;
 
-  int get invested => unitCost * bought;
+  final String? productId;
+  final int? remainingValue;
+  int get stockCost => remainingValue ?? invested;
+  final int? reportedInvested, reportedRevenue, reportedCost, reportedCommission, reportedNet, reportedShare;
+
+  int get invested => reportedInvested ?? unitCost * bought;
   int get remaining => bought - sold;
   double get soldRatio => bought == 0 ? 0 : sold / bought;
 
-  int get revenue => sold * salePrice;
-  int get costOfSold => sold * unitCost;
+  int get revenue => reportedRevenue ?? sold * salePrice;
+  int get costOfSold => reportedCost ?? sold * unitCost;
   int get grossProfit => revenue - costOfSold;
-  int get sellerCommission => (grossProfit * AppConfig.sellerCommissionPercent / 100).round();
-  int get netProfit => grossProfit - sellerCommission - otherCost;
-  int get investorShare => (netProfit * AppConfig.profitSharePercent / 100).round();
+  int get sellerCommission => reportedCommission ?? (grossProfit * AppConfig.sellerCommissionPercent / 100).round();
+  int get netProfit => reportedNet ?? grossProfit - sellerCommission - otherCost;
+  int get investorShare => reportedShare ?? (netProfit * AppConfig.profitSharePercent / 100).round();
   int get damageLoss => damaged * unitCost;
 }
 
@@ -106,6 +125,8 @@ class SellerHolding {
     required this.soldMonth,
     required this.todayAmount,
     required this.items,
+    this.weekAmount,
+    this.monthAmount,
   });
 
   final String name;
@@ -117,7 +138,7 @@ class SellerHolding {
   final int soldMonth;
   final int todayAmount;
 
-  int amountFor(int pieces) => soldToday == 0 ? 0 : (pieces * todayAmount / soldToday).round();
+  final int? weekAmount, monthAmount;
   final String items;
 
   String get initial => name.characters2;
@@ -155,6 +176,7 @@ class MonthReport {
     required this.cost,
     required this.commission,
     required this.otherCost,
+    this.reportedShare,
   });
 
   final String shortLabel;
@@ -170,7 +192,8 @@ class MonthReport {
 
   int get gross => revenue - cost;
   int get net => gross - commission - otherCost;
-  int get share => (net * AppConfig.profitSharePercent / 100).round();
+  final int? reportedShare;
+  int get share => reportedShare ?? (net * AppConfig.profitSharePercent / 100).round();
 }
 
 enum NoticeTone { good, warn, bad }
@@ -184,6 +207,7 @@ class InvestorNotice {
     required this.title,
     required this.time,
     required this.body,
+    this.read = false,
   });
 
   final NoticeTone tone;
@@ -191,6 +215,7 @@ class InvestorNotice {
   final String title;
   final String time;
   final String body;
+  final bool read;
 }
 
 extension on String {

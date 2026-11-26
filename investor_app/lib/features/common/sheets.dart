@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../app/router/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
 import '../../core/constants/app_config.dart';
 import '../../core/utils/bn_format.dart';
 import '../../core/widgets/ui.dart';
+import '../../data/investor_repository.dart';
 
 String _d(int n) => BnFormat.digits('$n');
 
@@ -21,56 +25,46 @@ List<Widget> agreementTermRows() => [
 
 Future<void> showAgreementSheet(BuildContext context) => showInfoSheet(
       context,
-      title: 'আমার চুক্তিপত্র',
+      title: 'আমার চুক্তির শর্ত',
       children: [
-        ...agreementTermRows(),
-        SizedBox(height: 16.h),
-        OutlinedButton.icon(
-          onPressed: () => showDemoNotice(context, 'ডেমো মোড: সই করা চুক্তির PDF সার্ভার যুক্ত হলে পাওয়া যাবে।'),
-          icon: const Icon(Icons.picture_as_pdf_outlined),
-          label: const Text('পুরো চুক্তিপত্র (PDF)'),
-        ),
+        Consumer(builder: (_, ref, __) {
+          final profile = ref.watch(investorProfileProvider);
+          return profile.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => TextButton(onPressed: () => ref.invalidate(investorProfileProvider),
+              child: const Text('আবার চেষ্টা করুন')),
+            data: (row) {
+              final terms = row['terms'] as Map;
+              return Column(children: [
+                KeyValueRow('লাভের ভাগ', '${BnFormat.digits('${terms['share_percent']}')}%'),
+                KeyValueRow('লাভের দিন', BnFormat.digits('${terms['payout_day']}')),
+                KeyValueRow('মূলধন ফেরতের নোটিশ', '${BnFormat.digits('${terms['notice_days']}')} দিন'),
+              ]);
+            },
+          );
+        }),
       ],
     );
 
-Future<void> showInvestSheet(BuildContext context) => showInfoSheet(
-      context,
-      title: 'আরও বিনিয়োগ করুন',
-      children: [
-        for (final (i, s) in const [
-          'অনুরোধ পাঠান — আমরা ফোন করে পরিমাণ ও প্রোডাক্ট ঠিক করব',
-          'নতুন কিস্তির চুক্তি অ্যাপে আসবে, OTP দিয়ে সই করবেন',
-          'শুধু অ্যাপে দেখানো কোম্পানির ব্যাংক অ্যাকাউন্টে টাকা পাঠাবেন',
-          'টাকা পৌঁছালে রসিদ খাতায় যোগ হবে, তারপর কেনাকাটা',
-        ].indexed)
-          Padding(
-            padding: EdgeInsets.only(bottom: 10.h),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 13.r,
-                  backgroundColor: AppColors.primary,
-                  child: Text(_d(i + 1), style: AppText.small.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(child: Text(s, style: AppText.bodySmall)),
-              ],
-            ),
-          ),
-        SizedBox(height: 6.h),
-        const InfoBox(
-          tone: InfoTone.warn,
-          icon: Icons.warning_amber_rounded,
-          text: 'কেউ ফোন করে অন্য কোনো নম্বরে টাকা পাঠাতে বললে পাঠাবেন না।',
-        ),
-        SizedBox(height: 16.h),
-        FilledButton(
-          onPressed: () => showDemoNotice(context, 'ডেমো মোড: অনুরোধ এখনো সার্ভারে যায় না।'),
-          child: const Text('বিনিয়োগের অনুরোধ পাঠান'),
-        ),
-      ],
-    );
+Future<void> showInvestSheet(BuildContext context) async {
+  final router = GoRouter.of(context);
+  final ready = await showModalBottomSheet<bool>(
+    context: context,
+    builder: (sheet) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('আরও বিনিয়োগ করুন', style: AppText.cardTitle),
+          const SizedBox(height: 8),
+          const Text('প্রস্তাবিত পরিমাণ অফিস সাপোর্টে পাঠান। অফিস আপনার সঙ্গে যোগাযোগ করবে।'),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: () => Navigator.pop(sheet, true), child: const Text('বিনিয়োগের বার্তা লিখুন')),
+        ]),
+      ),
+    ),
+  );
+  if (ready == true) router.push(AppRoutes.supportNew('investment', 'বিনিয়োগ ও মূলধন'));
+}
 
 Future<void> showHelpSheet(BuildContext context) => showInfoSheet(
       context,

@@ -1,14 +1,16 @@
+import 'package:flutter/foundation.dart' show kReleaseMode;
+
 /// App-wide configuration for the UI phase.
 abstract final class AppConfig {
-  /// When true, repositories return clearly labelled demo fixtures and a
-  /// "ডেমো" banner is shown. Set to false once the FastAPI backend is wired:
-  /// screens will then show "not connected yet" states instead of data.
-  static const bool demoMode = true;
+  static const bool demoMode = previewAuth;
 
-  /// UI phase: login, password reset and the seller application accept any
-  /// input so every screen can be walked through. Set to false to turn all
-  /// auth/onboarding validation back on (the rules are still in Validators).
-  static const bool skipAuthValidation = true;
+  /// Local UI preview. Release builds always use the backend for auth.
+  static const bool previewAuth = !kReleaseMode && bool.fromEnvironment('PREVIEW_AUTH');
+  static const bool skipAuthValidation = previewAuth;
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://10.0.2.2:8000/api/v1',
+  );
 
   /// Minimum seller age. Confirm with business policy and applicable law.
   static const int minimumSellerAge = 18;

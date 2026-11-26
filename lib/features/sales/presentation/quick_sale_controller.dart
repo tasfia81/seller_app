@@ -44,12 +44,14 @@ class QuickSaleState {
     return null;
   }
 
+  double get availableQty => product?.stockFor(variant) ?? 0;
+
   String? get quantityError {
     final p = product;
     if (p == null) return null;
     if (quantity <= 0) return 'পরিমাণ দিন।';
-    if (quantity > p.availableQty) {
-      return 'পর্যাপ্ত স্টক নেই। হাতে আছে ${BnFormat.qty(p.availableQty)} ${p.unit.label}।';
+    if (quantity > availableQty) {
+      return 'পর্যাপ্ত স্টক নেই। হাতে আছে ${BnFormat.qty(availableQty)} ${p.unit.label}।';
     }
     return null;
   }
@@ -57,7 +59,7 @@ class QuickSaleState {
   bool get needsVariant => (product?.variants.isNotEmpty ?? false) && variant == null;
 
   bool get canSubmit =>
-      product != null && !submitting && priceError == null && quantityError == null && !needsVariant;
+      product != null && !submitting && priceError == null && quantityError == null && !needsVariant && product!.paymentMethods.contains(payment);
 
   QuickSaleState copyWith({
     Product? product,
@@ -100,12 +102,16 @@ class QuickSaleController extends AutoDisposeNotifier<QuickSaleState> {
       variant: p.variants.length == 1 ? p.variants.first : null,
       quantity: p.unit.presets.first.clamp(0, max(p.availableQty, p.unit.step)).toDouble(),
       priceText: BnFormat.number(p.price, decimals: 2).replaceAll(',', ''),
-      payment: state.payment,
+      payment: p.paymentMethods.contains(state.payment) ? state.payment :
+          p.paymentMethods.firstOrNull ?? PaymentMethod.cash,
     );
     _requestId = _newId();
   }
 
-  void setVariant(String v) => state = state.copyWith(variant: v, clearError: true);
+  void setVariant(String v) {
+    final stock = state.product?.stockFor(v) ?? 0;
+    state = state.copyWith(variant: v, quantity: min(state.quantity, stock), clearError: true);
+  }
   void setQuantity(double q) => state = state.copyWith(quantity: q, clearError: true);
   void setPrice(String text) => state = state.copyWith(priceText: text, clearError: true);
   void setPayment(PaymentMethod m) => state = state.copyWith(payment: m);

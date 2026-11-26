@@ -35,13 +35,19 @@ lib/
   features/   intro, signup, home, menu, portfolio, sellers, ledger, report, withdraw, notifications, profile
 ```
 
-## Things to know
+## Local FastAPI
 
-- **Demo data:** `DemoInvestorRepository` supplies the numbers, and they all agree with each other (`test/numbers_test.dart` checks this). Later, implement the `InvestorRepository` interface against the FastAPI backend and swap the provider — no screen needs changing.
-- **No fake success:** withdraw requests, PDF downloads and new investments currently show a "ডেমো মোড" message. Without the server, nothing claims "sent".
-- **Validation:** `AppConfig.skipValidation = true` (UI phase). Set it to `false` to turn checks on.
-- **Bracketed text:** fill in the real values in `AppConfig` — `[ট্রেড লাইসেন্স নম্বর]`, `[অফিসের ঠিকানা]`, `[হেল্পলাইন নম্বর]`, `[সর্বনিম্ন বিনিয়োগ]`.
-- **Terms:** profit share 50%, seller commission 40%, payout on the 5th of each month, 30-day notice for capital return — all in `AppConfig`; update them to match the final agreement.
+Start the shared backend from the repository root as described in
+[../README.md](../README.md). The app defaults to the Android emulator endpoint
+`http://10.0.2.2:8000/api/v1`. For web or a different backend, pass
+`--dart-define=API_URL=...` to Flutter.
+
+Login, applications, portfolio, seller stock views, ledger, reports,
+notifications, payout preferences, withdrawals and support use FastAPI.
+Registration and password reset need the backend SMS key. Investment inquiries
+and profile-change requests are sent through the office support chat. The app
+shows account terms from the backend and lets users copy report and receipt
+details.
 
 ## Smoothness (no lag)
 

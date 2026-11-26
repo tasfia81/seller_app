@@ -1,9 +1,9 @@
-"""Login for admins and sellers. OTP / password recovery is NOT simulated."""
+"""Password login for Street Sales accounts."""
 
 from typing import Any
 
-from ..core.errors import Forbidden, NotImplementedYet, Unauthorized
-from ..core.security import create_token, verify_password
+from ..core.errors import AppError, Forbidden, Unauthorized
+from ..core.security import create_token, hash_password, verify_password
 from ..core.utils import normalize_mobile
 from ..storage import Tx
 from .common import SELLERS, USERS
@@ -35,5 +35,25 @@ def login(tx: Tx, identifier: str, password: str) -> dict[str, Any]:
     return {"access_token": token, "token_type": "bearer", "user": public_user(tx, user)}
 
 
-def request_password_otp() -> None:
-    raise NotImplementedYet("পাসওয়ার্ড পুনরুদ্ধারের কোড পাঠানোর সেবা এখনো চালু হয়নি। অফিসে যোগাযোগ করুন।", code="otp_not_available")
+def _active_session(tx: Tx, session_user: dict[str, Any]) -> dict[str, Any]:
+    user = tx.get(USERS, session_user["id"])
+    if not user or user.get("session_version", 0) != session_user.get("session_version", 0):
+        raise Unauthorized("সেশন শেষ হয়েছে। আবার লগইন করুন।", code="session_revoked")
+    return user
+
+
+def change_password(tx: Tx, session_user: dict[str, Any], current: str, password: str) -> None:
+    user = _active_session(tx, session_user)
+    if not verify_password(current, user["password_hash"]):
+        raise AppError("বর্তমান পাসওয়ার্ড সঠিক নয়।", code="invalid_password")
+    if not any(char.isdigit() for char in password):
+        raise AppError("পাসওয়ার্ডে অন্তত একটি সংখ্যা দিন।", code="invalid_password")
+    user["password_hash"] = hash_password(password)
+    user["session_version"] = user.get("session_version", 0) + 1
+    tx.put(USERS, user)
+
+
+def revoke_sessions(tx: Tx, session_user: dict[str, Any]) -> None:
+    user = _active_session(tx, session_user)
+    user["session_version"] = user.get("session_version", 0) + 1
+    tx.put(USERS, user)

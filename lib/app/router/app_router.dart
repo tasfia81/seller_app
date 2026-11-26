@@ -1,3 +1,5 @@
+import '../../core/constants/app_config.dart';
+import '../../features/auth/data/seller_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,9 +38,26 @@ import 'not_found_screen.dart';
 final _rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  final session = ref.watch(sellerSessionProvider);
+  final router = GoRouter(
+    refreshListenable: AppConfig.previewAuth ? null : session,
     navigatorKey: _rootKey,
     initialLocation: AppRoutes.splash,
+    redirect: (_, state) {
+      if (AppConfig.previewAuth) return null;
+      final path = state.uri.path;
+      const public = {
+        AppRoutes.splash, AppRoutes.intro, AppRoutes.welcome,
+        AppRoutes.login, AppRoutes.forgotPassword, AppRoutes.register,
+      };
+      if (public.contains(path)) return null;
+      if (session.user == null) return AppRoutes.login;
+      if (!session.active && path != AppRoutes.applicationStatus &&
+          path != AppRoutes.applicationSubmitted) {
+        return AppRoutes.applicationStatus;
+      }
+      return null;
+    },
     errorBuilder: (context, state) => const NotFoundScreen(),
     routes: [
       GoRoute(path: AppRoutes.splash, builder: (_, __) => const SplashScreen()),
@@ -114,4 +133,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  ref.onDispose(router.dispose);
+  return router;
 });

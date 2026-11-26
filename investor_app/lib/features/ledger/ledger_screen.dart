@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,8 +26,12 @@ class _LedgerScreenState extends ConsumerState<LedgerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = ref.watch(summaryProvider);
-    final all = ref.watch(ledgerProvider);
+    final sState = ref.watch(summaryProvider);
+    final allState = ref.watch(ledgerProvider);
+    if (!sState.hasValue) return ApiStatus(sState, onRetry: () => ref.invalidate(summaryProvider));
+    final s = sState.valueOrNull!;
+    if (!allState.hasValue) return ApiStatus(allState, onRetry: () => ref.invalidate(ledgerProvider));
+    final all = allState.valueOrNull!;
     final kind = _kinds[_filter];
     final rows = kind == null ? all : all.where((e) => e.kind == kind).toList(growable: false);
 
@@ -149,9 +154,12 @@ class _LedgerRow extends StatelessWidget {
           KeyValueRow('রসিদ নম্বর', e.reference),
           SizedBox(height: 12.h),
           OutlinedButton.icon(
-            onPressed: () => showDemoNotice(context, 'ডেমো মোড: রসিদের PDF সার্ভার যুক্ত হলে পাওয়া যাবে।'),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: '${e.reference}\n${e.title} · ${e.date}\n${tk(e.amount)} · ${e.via}'));
+              if (context.mounted) showDemoNotice(context, 'রসিদের তথ্য কপি হয়েছে।');
+            },
             icon: const Icon(Icons.download_rounded),
-            label: const Text('রসিদ ডাউনলোড (PDF)'),
+            label: const Text('রসিদের তথ্য কপি'),
           ),
         ],
       ),

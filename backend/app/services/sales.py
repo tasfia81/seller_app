@@ -33,10 +33,11 @@ def _next_receipt_no(tx: Tx) -> str:
 
 def sale_view(tx: Tx, s: dict[str, Any], *, admin: bool = False) -> dict[str, Any]:
     eff = effective_sale(s)
+    product = tx.get(PRODUCTS, s["product_id"]) or {}
     out = {
         "id": s["id"], "receipt_no": s["receipt_no"], "seller_id": s["seller_id"], "seller_name": s["seller_name"],
         "product_id": s["product_id"], "product_name": product_name(tx, s["product_id"], s["variant"]), "variant": s["variant"],
-        "quantity": eff["qty"], "unit_price": eff["unit_price"], "total": eff["total"], "payment": eff["payment"],
+        "unit": product.get("unit", "piece"), "quantity": eff["qty"], "unit_price": eff["unit_price"], "total": eff["total"], "payment": eff["payment"],
         "payment_label": PAYMENT_LABEL[eff["payment"]],
         "money_destination": "seller_cash" if eff["payment"] in SELLER_CASH_METHODS else "business_account",
         "note": s.get("note"), "status": s["status"], "status_label": STATUS_LABEL[s["status"]], "created_at": s["created_at"],

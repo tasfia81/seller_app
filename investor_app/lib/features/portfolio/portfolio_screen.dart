@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,8 +18,12 @@ class PortfolioScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = ref.watch(summaryProvider);
-    final holdings = ref.watch(holdingsProvider);
+    final sState = ref.watch(summaryProvider);
+    final holdingsState = ref.watch(holdingsProvider);
+    if (!sState.hasValue) return ApiStatus(sState, onRetry: () => ref.invalidate(summaryProvider));
+    final s = sState.valueOrNull!;
+    if (!holdingsState.hasValue) return ApiStatus(holdingsState, onRetry: () => ref.invalidate(holdingsProvider));
+    final holdings = holdingsState.valueOrNull!;
     final active = s.activeCapital;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -95,8 +100,8 @@ class _Allocation extends StatelessWidget {
   Widget build(BuildContext context) {
     final parts = <(String, int, Color)>[
       for (var i = 0; i < holdings.length; i++)
-        (holdings[i].shortName, holdings[i].invested, AppColors.allocation[i % (AppColors.allocation.length - 1)]),
-      ('খাটেনি', idle, AppColors.allocation.last),
+        if (holdings[i].stockCost > 0) (holdings[i].shortName, holdings[i].stockCost, AppColors.allocation[i % (AppColors.allocation.length - 1)]),
+      if (idle > 0) ('খাটেনি', idle, AppColors.allocation.last),
     ];
     return AppCard(
       child: Column(

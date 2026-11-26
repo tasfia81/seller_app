@@ -373,6 +373,7 @@ def holdings(tx: Tx, inv: dict[str, Any], book: Book) -> list[dict[str, Any]]:
             "batch": lot["ref"], "received_at": lot["received_at"], "bought": lot["qty"], "unit_cost": lot["unit_cost"],
             "invested": money(f * lot["qty"] * lot["unit_cost"]), "fraction": round(f, 4), "sold": sold, "remaining": book.left[lot["id"]],
             "sold_ratio": round(sold / lot["qty"], 4) if lot["qty"] else 0.0,
+            "remaining_value": money(f * book.left[lot["id"]] * lot["unit_cost"]),
             "revenue": money(f * sum(r["revenue"] for r in rows)), "cost": money(f * sum(r["cost"] for r in rows)),
             "commission": money(f * sum(r["commission"] for r in rows)), "net": money(f * net), "share": money(f * net * share),
         })
@@ -607,7 +608,7 @@ def withdrawal_view(tx: Tx, w: dict[str, Any]) -> dict[str, Any]:
 
 
 def request_withdrawal(tx: Tx, inv: dict[str, Any], user: dict[str, Any], data: WithdrawalRequestIn) -> dict[str, Any]:
-    existing = tx.first(INV_WITHDRAWALS, lambda w: w.get("client_request_id") == data.client_request_id)
+    existing = tx.first(INV_WITHDRAWALS, lambda w: w["investor_id"] == inv["id"] and w.get("client_request_id") == data.client_request_id)
     if existing:
         return {**withdrawal_view(tx, existing), "duplicate": True}
     _require_active(inv)
@@ -689,6 +690,18 @@ def ledger(tx: Tx, inv: dict[str, Any]) -> list[dict[str, Any]]:
              "method": METHOD_LABEL.get(t.get("method") or "", "—"), "reference": t.get("reference"), "month": t.get("month"), "at": t["at"]} for t in items]
 
 
+def self_profile(inv: dict[str, Any]) -> dict[str, Any]:
+    nominee = inv.get("nominee") or {}
+    return {
+        "name": inv["name"], "mobile": mask_mobile(inv["mobile"]),
+        "nid_masked": "••••" + inv.get("nid_last4", ""),
+        "address": inv.get("address") or {}, "terms": inv["terms"],
+        "payout": _payout_view(inv["payout"]) if inv.get("payout") else {},
+        "nominee": {"name": nominee.get("name"), "relation": nominee.get("relation"),
+                    "mobile": mask_mobile(nominee.get("mobile") or "")},
+    }
+
+
 def dashboard(tx: Tx, inv: dict[str, Any]) -> dict[str, Any]:
     book = Book(tx)
     pos = position(tx, inv, book)
@@ -698,6 +711,7 @@ def dashboard(tx: Tx, inv: dict[str, Any]) -> dict[str, Any]:
     unread = len(tx.find("notifications", lambda n: n["audience"] == f"investor:{inv['id']}" and not n["read"]))
     return {
         "name": inv["name"], "code": inv["code"], "status": _status_view(tx, inv)[0], "terms": inv["terms"], "preference": inv["preference"],
+        "joined_at": inv.get("joined_at"), "profit_paid_count": sum(1 for _, line in _approved_lines(tx, inv["id"]) if line["paid"]),
         **pos,
         "stock": {"bought": sum(lot["qty"] for lot in lots), "sold": sum(lot["qty"] - book.left[lot["id"]] for lot in lots),
                   "remaining": sum(book.left[lot["id"]] for lot in lots)},
@@ -741,12 +755,16 @@ def sellers_view(tx: Tx, inv: dict[str, Any]) -> list[dict[str, Any]]:
         if not stock and not rows:
             continue
         today_rows = [r for r in rows if r["day"] == t]
+        week_rows = [r for r in rows if t - timedelta(days=t.weekday()) <= r["day"] <= t]
+        month_rows = [r for r in rows if t.replace(day=1) <= r["day"] <= t]
         items: dict[str, float] = {}
         for x in stock:
             items[x["product_id"]] = items.get(x["product_id"], 0) + x["qty"]
         out.append({"name": s["name"], "area": _area(s), "in_hand": sum(items.values()),
                     "items": [{"product_name": product_name(tx, pid), "qty": q} for pid, q in items.items()],
                     "sold_today": round(sum(r["qty"] for r in today_rows), 2), "amount_today": money(sum(r["revenue"] for r in today_rows)),
+                    "sold_week": round(sum(r["qty"] for r in week_rows), 2), "amount_week": money(sum(r["revenue"] for r in week_rows)),
+                    "sold_month": round(sum(r["qty"] for r in month_rows), 2), "amount_month": money(sum(r["revenue"] for r in month_rows)),
                     "last_sale_at": max((r["at"] for r in rows), default=None)})
     return sorted(out, key=lambda x: -x["in_hand"])
 

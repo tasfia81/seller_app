@@ -5,8 +5,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/router/app_routes.dart';
+import '../data/seller_session.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_text.dart';
+import '../../../core/constants/app_config.dart';
 import '../../../core/errors/failure.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/app_button.dart';
@@ -45,7 +47,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             mobile: Validators.normalizePhone(_mobile.text),
             password: _password.text,
           );
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) {
+        final active = AppConfig.previewAuth || ref.read(sellerSessionProvider).active;
+        context.go(active ? AppRoutes.home : AppRoutes.applicationStatus);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = failureMessage(e));
     } finally {

@@ -74,7 +74,7 @@ class WelcomeScreen extends StatelessWidget {
                           variant: AppButtonVariant.outline,
                           onPressed: () => context.push(AppRoutes.register),
                         ),
-                        if (AppConfig.demoMode) ...[
+                        if (AppConfig.previewAuth) ...[
                           SizedBox(height: 6.h),
                           AppButton(
                             label: 'ডেমো: সরাসরি অ্যাপ দেখুন',

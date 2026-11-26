@@ -1,3 +1,4 @@
+import '../../../core/errors/failure.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -27,6 +28,10 @@ class SupportChatScreen extends ConsumerStatefulWidget {
 class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
   static const _quick = ['ধন্যবাদ, বুঝেছি', 'আরেকটু বুঝিয়ে বলবেন?', 'ফোনে কথা বলতে চাই'];
   final _text = TextEditingController();
+  String? _threadId;
+  String? _lastBody;
+  String? _requestId;
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -34,20 +39,38 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
     super.dispose();
   }
 
-  void _send([String? preset]) {
+  Future<void> _send([String? preset]) async {
     final body = (preset ?? _text.text).trim();
-    if (body.isEmpty) return;
-    if (!ref.read(supportRepositoryProvider).canSend) {
-      // Honest: nothing is sent until the app is connected to the server.
-      showAppSnack(context, 'ডেমো মোড: অফিসের সাথে সংযোগ এখনো চালু হয়নি — বার্তা পাঠানো হয়নি।', error: true);
+    if (body.isEmpty || _sending) return;
+    final repo = ref.read(supportRepositoryProvider);
+    if (repo is! ApiSupportRepository) {
+      showAppSnack(context, 'প্রিভিউ মোডে বার্তা পাঠানো যায় না।', error: true);
       return;
     }
-    // Connected later: POST /support/threads (new topic) or /support/threads/{id}/messages.
+    if (_lastBody != body || _requestId == null) {
+      _lastBody = body;
+      _requestId = 'chat-${DateTime.now().microsecondsSinceEpoch}';
+    }
+    setState(() => _sending = true);
+    try {
+      final thread = await repo.send(id: _threadId ?? widget.threadId, topic: widget.topic ?? 'other',
+        text: body, requestId: _requestId!);
+      if (!mounted) return;
+      _requestId = null;
+      if (_text.text.trim() == body) _text.clear();
+      setState(() => _threadId = thread.id);
+      ref.invalidate(supportThreadProvider(thread.id));
+      ref.invalidate(supportThreadsProvider);
+    } catch (error) {
+      if (mounted) showAppSnack(context, failureMessage(error), error: true);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final id = widget.threadId;
+    final id = _threadId ?? widget.threadId;
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,

@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,12 +19,28 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  bool _allRead = false;
+  bool _saving = false;
+
+  Future<void> _markRead() async {
+    setState(() => _saving = true);
+    try {
+      await ref.read(investorRepositoryProvider).markNoticesRead();
+      if (!mounted) return;
+      ref.invalidate(noticesProvider);
+      ref.invalidate(summaryProvider);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final items = ref.watch(noticesProvider);
-    final unread = _allRead ? 0 : ref.watch(summaryProvider).unreadUpdates;
+    final itemsState = ref.watch(noticesProvider);
+    if (!itemsState.hasValue) return ApiStatus(itemsState, onRetry: () => ref.invalidate(noticesProvider));
+    final items = itemsState.valueOrNull!;
+    final unread = items.where((notice) => !notice.read).length;
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
@@ -45,7 +62,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     SizedBox(width: 12.w),
                     Expanded(child: Text('নোটিফিকেশন', style: AppText.title)),
                     TextButton(
-                      onPressed: unread == 0 ? null : () => setState(() => _allRead = true),
+                      onPressed: unread == 0 || _saving ? null : _markRead,
                       child: const Text('সব পড়া হয়েছে'),
                     ),
                   ],

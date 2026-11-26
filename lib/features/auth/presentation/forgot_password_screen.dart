@@ -1,3 +1,4 @@
+import '../../../core/api/api_client.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -73,16 +74,20 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     });
     try {
       await call();
-      onSuccess();
+      if (mounted) onSuccess();
     } on NotConnectedFailure catch (e) {
-      if (AppConfig.demoMode) {
+      if (!mounted) return;
+      if (AppConfig.previewAuth) {
         _previewOnly = true;
         onSuccess();
       } else {
         setState(() => _error = e.message);
       }
+    } on ApiException catch (error) {
+      if (mounted && error.code == 'invalid_otp') setState(() => _step = 1);
+      if (mounted) showAppSnack(context, error.message, error: true);
     } catch (e) {
-      setState(() => _error = failureMessage(e));
+      if (mounted) setState(() => _error = failureMessage(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -98,16 +103,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   void _verify() {
-    final repo = ref.read(authRepositoryProvider);
-    _run(() => repo.verifyOtp(mobile: Validators.normalizePhone(_mobile.text), code: _otp.text),
-        () => setState(() => _step = 2));
+    setState(() => _step = 2);
   }
 
   void _save() {
     if (!_passForm.currentState!.validate()) return;
     final repo = ref.read(authRepositoryProvider);
     _run(
-      () => repo.resetPassword(mobile: Validators.normalizePhone(_mobile.text), newPassword: _pass.text),
+      () => repo.resetPassword(mobile: Validators.normalizePhone(_mobile.text), code: BnFormat.toAscii(_otp.text), newPassword: _pass.text),
       () async {
         if (_previewOnly) {
           await showConfirmDialog(context,

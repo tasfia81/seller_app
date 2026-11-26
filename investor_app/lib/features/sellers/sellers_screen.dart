@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,7 +27,9 @@ class _SellersScreenState extends ConsumerState<SellersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sellers = ref.watch(sellersProvider);
+    final sellersState = ref.watch(sellersProvider);
+    if (!sellersState.hasValue) return ApiStatus(sellersState, onRetry: () => ref.invalidate(sellersProvider));
+    final sellers = sellersState.valueOrNull!;
     final inHand = sellers.fold(0, (sum, s) => sum + s.inHand);
     final sold = sellers.fold(0, (sum, s) => sum + _sold(s));
 
@@ -163,7 +166,7 @@ class _SellerCard extends StatelessWidget {
               children: [
                 _Cell('হাতে', bn(s.inHand)),
                 _Cell('$rangeLabel বিক্রি', bn(sold)),
-                _Cell('টাকা', tk(s.amountFor(sold))),
+                _Cell('টাকা', tk(switch (rangeLabel) {'এই সপ্তাহ' => s.weekAmount ?? 0, 'এই মাস' => s.monthAmount ?? 0, _ => s.todayAmount})),
               ],
             ),
           ),

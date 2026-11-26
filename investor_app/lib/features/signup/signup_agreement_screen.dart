@@ -32,6 +32,24 @@ class _SignupAgreementScreenState extends ConsumerState<SignupAgreementScreen> {
 
   /// null = idle; otherwise what is happening right now.
   String? _progress;
+  String _otp = '';
+
+  Future<void> _requestOtp() async {
+    final mobile = ref.read(signupDraftProvider).mobile;
+    if (mobile.isEmpty) {
+      context.go(AppRoutes.signupMobile);
+      return;
+    }
+    setState(() => _progress = 'কোড পাঠানো হচ্ছে…');
+    try {
+      await ref.read(authRepositoryProvider).requestApplicationOtp(mobile);
+      if (mounted) showDemoNotice(context, 'নম্বরটি উপলব্ধ হলে SMS কোড পাঠানো হবে।');
+    } on ApiException catch (error) {
+      if (mounted) showDemoNotice(context, error.message);
+    } finally {
+      if (mounted) setState(() => _progress = null);
+    }
+  }
 
   Future<void> _submit() async {
     final draft = ref.read(signupDraftProvider);
@@ -43,7 +61,7 @@ class _SignupAgreementScreenState extends ConsumerState<SignupAgreementScreen> {
     }
     setState(() => _progress = 'আবেদন জমা হচ্ছে…');
     try {
-      await ref.read(authControllerProvider.notifier).submitApplication(draft.toJson());
+      await ref.read(authControllerProvider.notifier).submitApplication({...draft.toJson(), 'otp_code': _otp});
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _progress = null);
@@ -110,7 +128,7 @@ class _SignupAgreementScreenState extends ConsumerState<SignupAgreementScreen> {
   @override
   Widget build(BuildContext context) {
     final done = _checked.where((c) => c).length;
-    final ready = done == _texts.length;
+    final ready = done == _texts.length && _otp.length == 6;
     final busy = _progress != null;
     return PopScope(
       canPop: !busy, // Don't leave halfway through sending.
@@ -122,20 +140,20 @@ class _SignupAgreementScreenState extends ConsumerState<SignupAgreementScreen> {
             ? _progress!
             : ready
                 ? 'সম্মতি দিয়ে আবেদন জমা দিন'
-                : 'সবগুলো টিক দিন (${BnFormat.digits('$done')}/${BnFormat.digits('${_texts.length}')})',
+                : done == _texts.length ? '৬ সংখ্যার SMS কোড দিন' : 'সবগুলো টিক দিন (${BnFormat.digits('$done')}/${BnFormat.digits('${_texts.length}')})',
         onNext: ready && !busy ? _submit : null,
         children: [
+          TextButton(onPressed: busy ? null : _requestOtp, child: const Text('মোবাইলে SMS কোড পাঠান')),
+          TextField(
+            keyboardType: TextInputType.number, maxLength: 6,
+            onChanged: (value) => setState(() => _otp = BnFormat.toAscii(value).replaceAll(RegExp(r'[^0-9]'), '')),
+            decoration: const InputDecoration(labelText: 'SMS কোড'),
+          ),
           AppCard(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
             child: Column(children: agreementTermRows()),
           ),
           SizedBox(height: 12.h),
-          OutlinedButton.icon(
-            onPressed: () => showDemoNotice(context, 'পুরো চুক্তিপত্রের PDF এখনো অ্যাপে যুক্ত হয়নি।'),
-            icon: const Icon(Icons.description_outlined),
-            label: const Text('পুরো চুক্তিপত্র পড়ুন (PDF)'),
-          ),
-          SizedBox(height: 8.h),
           for (var i = 0; i < _texts.length; i++)
             CheckboxListTile(
               value: _checked[i],

@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,8 +8,6 @@ import 'package:go_router/go_router.dart';
 import '../../app/router/app_routes.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
-import '../../core/constants/app_config.dart';
-import '../../core/utils/bn_format.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/ui.dart';
 import '../../data/investor_repository.dart';
@@ -21,7 +20,9 @@ class ProductScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final h = ref.watch(holdingProvider(productId));
+    final hState = ref.watch(holdingProvider(productId));
+    if (!hState.hasValue) return ApiStatus(hState, onRetry: () => ref.invalidate(holdingProvider(productId)));
+    final h = hState.valueOrNull;
     if (h == null) {
       return Scaffold(
         appBar: AppBar(),
@@ -47,21 +48,11 @@ class ProductScreen extends ConsumerWidget {
                     TextSpan(text: '  · কেনা ${h.purchasedOn}', style: AppText.caption),
                   ])),
                   SizedBox(height: 12.h),
-                  Row(
-                    children: [
-                      Expanded(child: _StockTile('বিক্রি হয়েছে', h.sold, Icons.check_rounded)),
-                      SizedBox(width: 8.w),
-                      Expanded(child: _StockTile('সেলারের হাতে', h.withSellers, Icons.person_outline_rounded)),
-                    ],
-                  ),
-                  SizedBox(height: 8.h),
-                  Row(
-                    children: [
-                      Expanded(child: _StockTile('গুদামে', h.inWarehouse, Icons.warehouse_outlined)),
-                      SizedBox(width: 8.w),
-                      Expanded(child: _StockTile('নষ্ট / হারানো', h.damaged, Icons.error_outline_rounded, bad: true)),
-                    ],
-                  ),
+                  Row(children: [
+                    Expanded(child: _StockTile('বিক্রি হয়েছে', h.sold, Icons.check_rounded)),
+                    SizedBox(width: 8.w),
+                    Expanded(child: _StockTile('বিক্রি বাকি', h.remaining, Icons.inventory_2_outlined)),
+                  ]),
                 ],
               ),
             ),
@@ -72,7 +63,7 @@ class ProductScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text('কোন সেলারের দায়িত্বে', style: AppText.cardTitle)),
+                      Expanded(child: Text('এই পণ্যের সেলার', style: AppText.cardTitle)),
                       TextButton(onPressed: () => context.push(AppRoutes.sellers), child: const Text('সব দেখুন')),
                     ],
                   ),
@@ -131,7 +122,7 @@ class ProductScreen extends ConsumerWidget {
                             SizedBox(height: 6.h),
                             KeyValueRow('বিক্রি (${bn(h.sold)} × ${tk(h.salePrice)})', tk(h.revenue)),
                             KeyValueRow('কেনা দাম (${bn(h.sold)} × ${tk(h.unitCost)})', tk(-h.costOfSold)),
-                            KeyValueRow('সেলার কমিশন (${BnFormat.digits('${AppConfig.sellerCommissionPercent}')}%)',
+                            KeyValueRow('সেলার কমিশন',
                                 tk(-h.sellerCommission)),
                             KeyValueRow('অন্যান্য খরচ', tk(-h.otherCost)),
                             const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Divider()),
@@ -147,7 +138,7 @@ class ProductScreen extends ConsumerWidget {
                             children: [
                               Expanded(
                                 child: Text(
-                                  'আপনার ভাগ (${BnFormat.digits('${AppConfig.profitSharePercent}')}%)',
+                                  'আপনার ভাগ',
                                   style: AppText.bodyStrong.copyWith(color: Colors.white, fontSize: 16.sp),
                                 ),
                               ),
@@ -260,19 +251,18 @@ class _Section extends StatelessWidget {
 }
 
 class _StockTile extends StatelessWidget {
-  const _StockTile(this.label, this.value, this.icon, {this.bad = false});
+  const _StockTile(this.label, this.value, this.icon);
 
   final String label;
   final int value;
   final IconData icon;
-  final bool bad;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: bad ? AppColors.dangerSoft : AppColors.softGreen,
+        color: AppColors.softGreen,
         borderRadius: BorderRadius.circular(14.r),
       ),
       child: Row(
@@ -282,12 +272,12 @@ class _StockTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: AppText.small.copyWith(color: bad ? AppColors.dangerText : AppColors.softGreenText)),
-                Text(bn(value), style: AppText.amount(20, color: bad ? AppColors.danger : AppColors.textPrimary)),
+                Text(label, style: AppText.small.copyWith(color: AppColors.softGreenText)),
+                Text(bn(value), style: AppText.amount(20, color: AppColors.textPrimary)),
               ],
             ),
           ),
-          Icon(icon, size: 18.r, color: bad ? AppColors.danger : AppColors.primary),
+          Icon(icon, size: 18.r, color: AppColors.primary),
         ],
       ),
     );

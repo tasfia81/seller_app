@@ -1,3 +1,4 @@
+import '../../core/widgets/api_status.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text.dart';
-import '../../core/constants/app_config.dart';
+import '../../data/support/support_repository.dart' show SupportRepository;
 import '../../core/utils/bn_format.dart';
 import '../../core/utils/money.dart';
 import '../../core/widgets/ui.dart';
@@ -21,13 +22,16 @@ class WithdrawScreen extends ConsumerStatefulWidget {
 
 class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   int _mode = 1; // 0 লাভ, 1 মূলধন
-  int _payMode = 0; // 0 টাকা নেব, 1 আবার বিনিয়োগ
-  int _dest = 0; // 0 ব্যাংক, 1 বিকাশ
+  bool _saving = false;
+  String? _requestId;
+  String? _requestInput;
+  final _reason = TextEditingController();
   final _amount = TextEditingController();
 
   @override
   void dispose() {
     _amount.dispose();
+    _reason.dispose();
     super.dispose();
   }
 
@@ -35,9 +39,11 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = ref.watch(summaryProvider);
-    final holdings = ref.watch(holdingsProvider);
-    final inStock = holdings.fold(0, (sum, h) => sum + h.invested);
+    final sState = ref.watch(summaryProvider);
+    if (!sState.hasValue) return ApiStatus(sState, onRetry: () => ref.invalidate(summaryProvider));
+    final s = sState.valueOrNull!;
+    final history = ref.watch(withdrawalsProvider);
+
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -74,8 +80,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: _mode == 0
-                    ? _profit(s.profitThisMonth, s.nextPayoutLabel)
-                    : _capital(s.activeCapital, s.uninvested, inStock),
+                    ? _profit(s.profitThisMonth, s.nextPayoutLabel, s.preference)
+                    : _capital(s.activeCapital, s.uninvested, s.inStock ?? 0, s.noticeDays),
               ),
             ),
             Padding(
@@ -86,19 +92,15 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   children: [
                     Text('আগের অনুরোধ', style: AppText.cardTitle),
                     SizedBox(height: 8.h),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('মূলধন ফেরত ${tk(s.withdrawn)}', style: AppText.bodyStrong),
-                              Text('চাওয়া ২ নভে · পেয়েছেন ১৮ নভে · ব্যাংক ••৪৮২১', style: AppText.small),
-                            ],
-                          ),
-                        ),
-                        const Pill('সম্পন্ন'),
-                      ],
+                    history.when(
+                      loading: () => const CircularProgressIndicator(),
+                      error: (_, __) => TextButton(onPressed: () => ref.invalidate(withdrawalsProvider), child: const Text('আবার চেষ্টা করুন')),
+                      data: (items) => items.isEmpty ? const Text('এখনো কোনো অনুরোধ নেই।') : Column(
+                        children: [
+                          for (final row in items)
+                            KeyValueRow(tk((row['amount'] as num).round()), row['status_label'] as String),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -110,7 +112,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     );
   }
 
-  Widget _profit(int pending, String payoutLabel) {
+  Widget _profit(int pending, String payoutLabel, String preference) {
     return Column(
       key: const ValueKey('profit'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -135,14 +137,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('লাভ কীভাবে নেবেন', style: AppText.cardTitle),
-              _choice('প্রতি মাসে টাকা হাতে নেব', 0, _payMode, (v) => setState(() => _payMode = v)),
-              _choice('লাভ আবার বিনিয়োগ করব', 1, _payMode, (v) => setState(() => _payMode = v)),
-              if (_payMode == 1)
-                Padding(
-                  padding: EdgeInsets.only(top: 6.h),
-                  child: Text('পরিবর্তন পরের মাস থেকে কার্যকর হবে। (ডেমো — এখনো সংরক্ষণ হয় না)',
-                      style: AppText.small),
-                ),
+              _choice('প্রতি মাসে টাকা হাতে নেব', 0, preference == 'reinvest' ? 1 : 0,
+                (value) => _changePreference(value == 0 ? 'cash' : 'reinvest')),
+              _choice('লাভ আবার বিনিয়োগ করব', 1, preference == 'reinvest' ? 1 : 0,
+                (value) => _changePreference(value == 0 ? 'cash' : 'reinvest')),
             ],
           ),
         ),
@@ -150,10 +148,8 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     );
   }
 
-  Widget _capital(int active, int idle, int inStock) {
+  Widget _capital(int active, int idle, int inStock, int noticeDays) {
     final amount = _entered;
-    final fast = amount < idle ? amount : idle;
-    final later = amount - fast;
     final tooMuch = amount > active;
     return Column(
       key: const ValueKey('capital'),
@@ -167,7 +163,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
               KeyValueRow('স্টকে আটকে আছে', tk(inStock)),
               const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Divider()),
               Text(
-                'স্টকে থাকা টাকা বিক্রি হওয়ার সাথে সাথে ফেরত আসে — অনুরোধের পর সর্বোচ্চ ${BnFormat.digits('${AppConfig.capitalNoticeDays}')} দিন।',
+                'স্টকে থাকা টাকা বিক্রি হওয়ার সাথে সাথে ফেরত আসে — অনুরোধের পর সর্বোচ্চ ${BnFormat.digits('${noticeDays}')} দিন।',
                 style: AppText.caption,
               ),
             ],
@@ -196,24 +192,16 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                   errorText: tooMuch ? 'সক্রিয় মূলধনের বেশি তোলা যাবে না' : null,
                 ),
               ),
-              if (amount > 0 && !tooMuch) ...[
-                SizedBox(height: 6.h),
-                Text(
-                  later > 0
-                      ? '${tk(fast)} ৩ দিনে, বাকি ${tk(later)} বিক্রি অনুযায়ী ${BnFormat.digits('${AppConfig.capitalNoticeDays}')} দিনের মধ্যে'
-                      : '${tk(fast)} ৩ দিনের মধ্যে',
-                  style: AppText.caption,
-                ),
-              ],
               SizedBox(height: 12.h),
-              Text('কোথায় নেবেন', style: AppText.label),
-              _choice('ব্যাংক অ্যাকাউন্ট ••৪৮২১', 0, _dest, (v) => setState(() => _dest = v)),
-              _choice('বিকাশ ••৭৭০২', 1, _dest, (v) => setState(() => _dest = v)),
+              TextField(
+                controller: _reason,
+                maxLength: 200,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'ফেরতের কারণ'),
+              ),
               SizedBox(height: 8.h),
               FilledButton(
-                onPressed: amount <= 0 || tooMuch
-                    ? null
-                    : () => showDemoNotice(context, 'ডেমো মোড: অনুরোধ এখনো সার্ভারে যায়নি। ব্যাকএন্ড যুক্ত হলে কাজ করবে।'),
+                onPressed: amount <= 0 || tooMuch || _saving || _reason.text.trim().length < 3 ? null : _withdraw,
                 child: const Text('ফেরতের অনুরোধ পাঠান'),
               ),
               SizedBox(height: 6.h),
@@ -226,11 +214,50 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     );
   }
 
+  Future<void> _run(Future<void> Function() operation, String success) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await operation();
+      if (!mounted) return;
+      ref.invalidate(summaryProvider);
+      ref.invalidate(withdrawalsProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success)));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _changePreference(String preference) => _run(
+    () => ref.read(investorRepositoryProvider).setPreference(preference),
+    'লাভ পাওয়ার পছন্দ সংরক্ষিত হয়েছে।',
+  );
+
+  Future<void> _withdraw() async {
+    final amount = _entered;
+    final reason = _reason.text.trim();
+    final input = '$amount:$reason';
+    if (_requestInput != input) {
+      _requestInput = input;
+      _requestId = SupportRepository.newRequestId();
+    }
+    await _run(() async {
+      await ref.read(investorRepositoryProvider).requestWithdrawal(amount, reason, _requestId!);
+      if (mounted) {
+        _amount.clear();
+        _reason.clear();
+      }
+      _requestInput = null;
+    }, 'ফেরতের অনুরোধ জমা হয়েছে।');
+  }
+
   Widget _choice(String label, int value, int group, ValueChanged<int> onChanged) {
     return RadioListTile<int>(
       value: value,
       groupValue: group,
-      onChanged: (v) => onChanged(v ?? group),
+      onChanged: _saving ? null : (v) => onChanged(v ?? group),
       contentPadding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
       title: Text(label, style: AppText.body),

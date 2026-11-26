@@ -8,6 +8,8 @@ All reads and writes happen inside `store.transaction()`; a transaction either
 commits completely or not at all.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
