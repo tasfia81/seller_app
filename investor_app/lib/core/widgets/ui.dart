@@ -7,7 +7,8 @@ import '../../app/theme/app_text.dart';
 
 /// Green gradient header with rounded bottom corners (reference style).
 class GradientHeader extends StatelessWidget {
-  const GradientHeader({super.key, required this.child, this.padding, this.rounded = true});
+  const GradientHeader(
+      {super.key, required this.child, this.padding, this.rounded = true});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -16,14 +17,24 @@ class GradientHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+    final radius =
+        rounded ? BorderRadius.vertical(bottom: Radius.circular(28.r)) : null;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: AppColors.headerGradient,
-        borderRadius: rounded ? BorderRadius.vertical(bottom: Radius.circular(28.r)) : null,
-      ),
-      child: Padding(
-        padding: padding ?? EdgeInsets.fromLTRB(16.w, top + 10.h, 16.w, 20.h),
-        child: child,
+          gradient: AppColors.headerGradient, borderRadius: radius),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          gradient: const RadialGradient(
+            center: Alignment(0.75, -0.85),
+            radius: 1.25,
+            colors: [Color(0x309CE8C6), Color(0x009CE8C6)],
+          ),
+        ),
+        child: Padding(
+          padding: padding ?? EdgeInsets.fromLTRB(16.w, top + 10.h, 16.w, 20.h),
+          child: child,
+        ),
       ),
     );
   }
@@ -96,7 +107,13 @@ class CircleIconButton extends StatelessWidget {
 
 /// White rounded card. Tappable when [onTap] is set (ripple is clipped).
 class AppCard extends StatelessWidget {
-  const AppCard({super.key, required this.child, this.padding, this.onTap, this.color = Colors.white, this.radius});
+  const AppCard(
+      {super.key,
+      required this.child,
+      this.padding,
+      this.onTap,
+      this.color = Colors.white,
+      this.radius});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -107,12 +124,28 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = BorderRadius.circular(radius ?? 20.r);
-    final content = Padding(padding: padding ?? EdgeInsets.all(16.r), child: child);
+    final content =
+        Padding(padding: padding ?? EdgeInsets.all(16.r), child: child);
+    final isLight = color == Colors.white;
     return Material(
-      color: color,
-      borderRadius: r,
-      clipBehavior: onTap == null ? Clip.none : Clip.antiAlias,
-      child: onTap == null ? content : InkWell(onTap: onTap, child: content),
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: r),
+      clipBehavior: Clip.antiAlias,
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: isLight
+              ? AppColors.glassGradient
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color.alphaBlend(const Color(0x18FFFFFF), color), color],
+                ),
+          borderRadius: r,
+          border: Border.all(
+              color: isLight ? AppColors.glassEdge : const Color(0x35FFFFFF)),
+        ),
+        child: onTap == null ? content : InkWell(onTap: onTap, child: content),
+      ),
     );
   }
 }
@@ -153,7 +186,10 @@ class IconBox extends StatelessWidget {
 
 /// Small rounded label (status, counts).
 class Pill extends StatelessWidget {
-  const Pill(this.text, {super.key, this.background = AppColors.softGreen, this.color = AppColors.primary});
+  const Pill(this.text,
+      {super.key,
+      this.background = AppColors.softGreen,
+      this.color = AppColors.primary});
 
   final String text;
   final Color background;
@@ -163,8 +199,11 @@ class Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 2.h),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(9.r)),
-      child: Text(text, style: AppText.small.copyWith(color: color, fontWeight: FontWeight.w700)),
+      decoration: BoxDecoration(
+          color: background, borderRadius: BorderRadius.circular(9.r)),
+      child: Text(text,
+          style: AppText.small
+              .copyWith(color: color, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -182,7 +221,8 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: Text(title, style: AppText.section)),
-        if (action != null) TextButton(onPressed: onAction, child: Text(action!)),
+        if (action != null)
+          TextButton(onPressed: onAction, child: Text(action!)),
       ],
     );
   }
@@ -190,7 +230,8 @@ class SectionHeader extends StatelessWidget {
 
 /// Label / value row used in breakdowns.
 class KeyValueRow extends StatelessWidget {
-  const KeyValueRow(this.label, this.value, {super.key, this.strong = false, this.valueColor});
+  const KeyValueRow(this.label, this.value,
+      {super.key, this.strong = false, this.valueColor});
 
   final String label;
   final String value;
@@ -205,12 +246,18 @@ class KeyValueRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(label, style: strong ? AppText.bodyStrong : AppText.bodySmall.copyWith(color: AppColors.textSecondary)),
+            child: Text(label,
+                style: strong
+                    ? AppText.bodyStrong
+                    : AppText.bodySmall
+                        .copyWith(color: AppColors.textSecondary)),
           ),
           SizedBox(width: 12.w),
           Text(value,
               textAlign: TextAlign.right,
-              style: (strong ? AppText.bodyStrong.copyWith(fontWeight: FontWeight.w700) : AppText.label)
+              style: (strong
+                      ? AppText.bodyStrong.copyWith(fontWeight: FontWeight.w700)
+                      : AppText.label)
                   .copyWith(color: valueColor)),
         ],
       ),
@@ -220,7 +267,11 @@ class KeyValueRow extends StatelessWidget {
 
 /// iOS-style segmented control (grey track, white selected pill).
 class SegmentedTabs extends StatelessWidget {
-  const SegmentedTabs({super.key, required this.labels, required this.index, required this.onChanged});
+  const SegmentedTabs(
+      {super.key,
+      required this.labels,
+      required this.index,
+      required this.onChanged});
 
   final List<String> labels;
   final int index;
@@ -230,7 +281,9 @@ class SegmentedTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(4.r),
-      decoration: BoxDecoration(color: const Color(0xFFE6EBE8), borderRadius: BorderRadius.circular(14.r)),
+      decoration: BoxDecoration(
+          color: const Color(0xFFE6EBE8),
+          borderRadius: BorderRadius.circular(14.r)),
       child: Row(
         children: [
           for (var i = 0; i < labels.length; i++)
@@ -250,14 +303,22 @@ class SegmentedTabs extends StatelessWidget {
                       color: i == index ? Colors.white : Colors.transparent,
                       borderRadius: BorderRadius.circular(10.r),
                       boxShadow: i == index
-                          ? const [BoxShadow(color: Color(0x14000000), blurRadius: 3, offset: Offset(0, 1))]
+                          ? const [
+                              BoxShadow(
+                                  color: Color(0x14000000),
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1))
+                            ]
                           : null,
                     ),
                     child: Text(
                       labels[i],
                       style: AppText.label.copyWith(
-                        fontWeight: i == index ? FontWeight.w700 : FontWeight.w500,
-                        color: i == index ? AppColors.textPrimary : AppColors.textSecondary,
+                        fontWeight:
+                            i == index ? FontWeight.w700 : FontWeight.w500,
+                        color: i == index
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
                       ),
                     ),
                   ),
@@ -272,7 +333,11 @@ class SegmentedTabs extends StatelessWidget {
 
 /// Row of pill-shaped filter chips (dark when selected).
 class FilterPills extends StatelessWidget {
-  const FilterPills({super.key, required this.labels, required this.index, required this.onChanged});
+  const FilterPills(
+      {super.key,
+      required this.labels,
+      required this.index,
+      required this.onChanged});
 
   final List<String> labels;
   final int index;
@@ -291,7 +356,9 @@ class FilterPills extends StatelessWidget {
             child: Material(
               color: i == index ? AppColors.dark : Colors.white,
               shape: StadiumBorder(
-                side: BorderSide(color: i == index ? AppColors.dark : AppColors.borderStrong),
+                side: BorderSide(
+                    color:
+                        i == index ? AppColors.dark : AppColors.borderStrong),
               ),
               child: InkWell(
                 customBorder: const StadiumBorder(),
@@ -303,12 +370,14 @@ class FilterPills extends StatelessWidget {
                     child: Center(
                       widthFactor: 1,
                       child: Text(
-                    labels[i],
-                    style: AppText.label.copyWith(
-                      color: i == index ? Colors.white : AppColors.textPrimary,
-                      fontWeight: i == index ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
+                        labels[i],
+                        style: AppText.label.copyWith(
+                          color:
+                              i == index ? Colors.white : AppColors.textPrimary,
+                          fontWeight:
+                              i == index ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -369,7 +438,10 @@ class LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (label.isNotEmpty) ...[Text(label, style: AppText.label), SizedBox(height: 6.h)],
+        if (label.isNotEmpty) ...[
+          Text(label, style: AppText.label),
+          SizedBox(height: 6.h)
+        ],
         TextFormField(
           controller: controller,
           initialValue: controller == null ? initialValue : null,
@@ -394,7 +466,10 @@ class LabeledField extends StatelessWidget {
         ),
         if (helper != null && errorText == null) ...[
           SizedBox(height: 4.h),
-          Text(helper!, style: AppText.small.copyWith(color: helperOk ? AppColors.primary : AppColors.textSecondary)),
+          Text(helper!,
+              style: AppText.small.copyWith(
+                  color:
+                      helperOk ? AppColors.primary : AppColors.textSecondary)),
         ],
       ],
     );
@@ -437,7 +512,10 @@ class _LabeledDropdownState extends State<LabeledDropdown> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.label.isNotEmpty) ...[Text(widget.label, style: AppText.label), SizedBox(height: 6.h)],
+        if (widget.label.isNotEmpty) ...[
+          Text(widget.label, style: AppText.label),
+          SizedBox(height: 6.h)
+        ],
         DropdownButtonFormField<String>(
           // Rebuild when the option list changes (e.g. districts of a new division).
           key: ValueKey('${widget.options.join('|')}#$current'),
@@ -446,9 +524,16 @@ class _LabeledDropdownState extends State<LabeledDropdown> {
           style: AppText.body.copyWith(height: 1.3),
           borderRadius: BorderRadius.circular(12.r),
           dropdownColor: Colors.white,
-          hint: widget.hint == null ? null : Text(widget.hint!, style: AppText.body.copyWith(color: AppColors.textSecondary)),
-          decoration: InputDecoration(hintText: widget.semanticLabel, errorText: widget.errorText),
-          items: [for (final o in widget.options) DropdownMenuItem(value: o, child: Text(o))],
+          hint: widget.hint == null
+              ? null
+              : Text(widget.hint!,
+                  style: AppText.body.copyWith(color: AppColors.textSecondary)),
+          decoration: InputDecoration(
+              hintText: widget.semanticLabel, errorText: widget.errorText),
+          items: [
+            for (final o in widget.options)
+              DropdownMenuItem(value: o, child: Text(o))
+          ],
           onChanged: (v) {
             if (v == null) return;
             if (controlled) {
@@ -465,7 +550,8 @@ class _LabeledDropdownState extends State<LabeledDropdown> {
 
 /// Tinted info box (green / amber / red).
 class InfoBox extends StatelessWidget {
-  const InfoBox({super.key, required this.text, this.icon, this.tone = InfoTone.good});
+  const InfoBox(
+      {super.key, required this.text, this.icon, this.tone = InfoTone.good});
 
   final String text;
   final IconData? icon;
@@ -481,15 +567,19 @@ class InfoBox extends StatelessWidget {
     };
     return Container(
       padding: tone == InfoTone.plain ? EdgeInsets.zero : EdgeInsets.all(12.r),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14.r)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14.r)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Padding(padding: EdgeInsets.only(top: 2.h), child: Icon(icon, size: 18.r, color: fg)),
+            Padding(
+                padding: EdgeInsets.only(top: 2.h),
+                child: Icon(icon, size: 18.r, color: fg)),
             SizedBox(width: 10.w),
           ],
-          Expanded(child: Text(text, style: AppText.caption.copyWith(color: fg))),
+          Expanded(
+              child: Text(text, style: AppText.caption.copyWith(color: fg))),
         ],
       ),
     );
@@ -504,12 +594,14 @@ void showDemoNotice(BuildContext context, [String? message]) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
-      content: Text(message ?? 'ডেমো মোড: সার্ভার এখনো যুক্ত হয়নি, তাই এটা এখনো কাজ করবে না।'),
+      content: Text(message ??
+          'ডেমো মোড: সার্ভার এখনো যুক্ত হয়নি, তাই এটা এখনো কাজ করবে না।'),
     ));
 }
 
 /// Bottom sheet with a title and content.
-Future<void> showInfoSheet(BuildContext context, {required String title, required List<Widget> children}) {
+Future<void> showInfoSheet(BuildContext context,
+    {required String title, required List<Widget> children}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,

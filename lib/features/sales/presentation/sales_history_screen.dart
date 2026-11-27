@@ -13,6 +13,7 @@ import '../../../shared/models/enums.dart';
 import '../../../shared/models/sale.dart';
 import '../../../shared/widgets/commerce_widgets.dart';
 import '../data/sales_repository_impl.dart';
+import '../data/pending_sale_store.dart';
 
 typedef SalesQuery = ({SalesPeriod period, DateTimeRange? range});
 
@@ -83,15 +84,24 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final value = ref.watch(salesListProvider(_q));
+    final pending = ref.watch(pendingSaleProvider).valueOrNull;
     return Scaffold(
       appBar: AppBar(titleSpacing: 16.w, title: const Text('বিক্রির ইতিহাস')),
       body: Column(children: [
+        if (pending != null)
+          ListTile(
+            leading: const Icon(Icons.sync_problem_rounded),
+            title: const Text('আগের বিক্রির অবস্থা যাচাই করুন'),
+            subtitle: Text(pending.productName),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => context.push(AppRoutes.newSale()),
+          ),
         Padding(
           padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 4.h),
           child: Column(children: [
             AppSearchField(
               hint: 'বিক্রি নম্বর দিয়ে খুঁজুন',
-              onChanged: (v) => setState(() => _query = BnFormat.digits(v.trim())),
+              onChanged: (v) => setState(() => _query = BnFormat.toAscii(v.trim().replaceFirst(RegExp(r'^#'), ''))),
             ),
             SizedBox(height: 10.h),
             ChoicePills<SalesPeriod>(

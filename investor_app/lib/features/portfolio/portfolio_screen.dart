@@ -107,13 +107,14 @@ class _Allocation extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ভাগ করে দেখুন', style: AppText.cardTitle),
+          Text('মূলধনের বণ্টন', style: AppText.cardTitle),
           SizedBox(height: 12.h),
           ClipRRect(
             borderRadius: BorderRadius.circular(7.r),
             child: SizedBox(
               height: 14.h,
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var i = 0; i < parts.length; i++) ...[
                     if (i > 0) const SizedBox(width: 2),

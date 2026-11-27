@@ -10,7 +10,7 @@ from ..core.deps import SellerDep, StoreDep, UserDep
 from ..core.errors import AppError, Forbidden
 from ..storage import Tx
 from ..schemas import ApplicationIn, CorrectionIn, HandoverIn, ProfileChangeIn, ReturnIn, SaleIn, OtpRequestIn
-from ..services import applications, auth, catalog, finance, inventory, password_recovery, reports, sales, sellers, settlements, system
+from ..services import applications, auth, catalog, finance, inventory, password_recovery, reports, sales, sellers, settlements, support_live, system
 from ..services.common import APPLICATIONS, ASSIGNMENTS, CATEGORIES, PRODUCTS, RETURNS, SELLER_CASH_METHODS, SELLER_STOCK, SETTINGS, require
 from ..services.compensation import current_rule, rule_text
 from .uploads import save_image
@@ -138,7 +138,10 @@ def accept_assignment(assignment_id: str, ctx: SellerDep, store: StoreDep):
 @router.post("/sales", status_code=201, summary="নতুন বিক্রি (সার্ভার যাচাই করে নিশ্চিত করে)")
 def create_sale(body: SaleIn, ctx: SellerDep, store: StoreDep):
     with store.transaction() as tx:
-        return sales.create_sale(tx, ctx.seller, body)
+        result = sales.create_sale(tx, ctx.seller, body)
+    if not result["duplicate"]:
+        support_live.publish(None)
+    return result
 
 
 @router.get("/sales", summary="বিক্রির ইতিহাস")
@@ -146,6 +149,13 @@ def my_sales(ctx: SellerDep, store: StoreDep, period: Literal["today", "yesterda
              date_from: date | None = None, date_to: date | None = None, q: str | None = None):
     with store.transaction() as tx:
         return sales.list_sales(tx, seller_id=ctx.id, period=period, start=date_from, end=date_to, q=q)
+
+
+@router.get("/sales/attempts/{request_id}", summary="পাঠানো বিক্রির অবস্থা")
+def sale_attempt(request_id: str, ctx: SellerDep, store: StoreDep):
+    with store.transaction() as tx:
+        record = sales.find_sale_attempt(tx, ctx.id, request_id)
+        return {"sale": sales.sale_view(tx, record) if record else None}
 
 
 @router.get("/sales/{sale_id}", summary="বিক্রির বিস্তারিত / রসিদ")
@@ -211,7 +221,9 @@ def my_cash(ctx: SellerDep, store: StoreDep):
 @router.post("/cash/handovers", status_code=201, summary="ক্যাশ জমার তথ্য পাঠান")
 def submit_handover(body: HandoverIn, ctx: SellerDep, store: StoreDep):
     with store.transaction() as tx:
-        return finance.submit_handover(tx, ctx.seller, body)
+        result = finance.submit_handover(tx, ctx.seller, body)
+    support_live.publish(None)
+    return result
 
 
 @router.get("/day-closing", summary="আজকের দিনের হিসাব")

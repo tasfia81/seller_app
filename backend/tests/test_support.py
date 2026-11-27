@@ -58,3 +58,52 @@ def test_investor_and_role_walls(client, admin, investor):
     assert client.get(f"{API}/admin/support/threads", headers=investor).status_code == 403
     empty = client.post(f"{API}/support/threads/{r.json()['id']}/messages", headers=investor, json={"text": "   ", "client_request_id": "req-inv-0002"})
     assert empty.status_code in (400, 422)
+
+
+def test_live_updates_are_scoped_and_tickets_are_single_use(client, admin, rakib, investor):
+    from starlette.websockets import WebSocketDisconnect
+
+    def ticket(headers):
+        response = client.post(f"{API}/support/live-ticket", headers=headers)
+        assert response.status_code == 200
+        return response.json()["ticket"]
+
+    def sign_in(socket, grant):
+        socket.send_text(grant)
+        assert socket.receive_text() == "ready"
+
+    assert client.post(f"{API}/support/live-ticket").status_code == 401
+    seller_ticket = ticket(rakib)
+
+    with (
+        client.websocket_connect(f"{API}/support/live") as seller_live,
+        client.websocket_connect(f"{API}/support/live") as investor_live,
+        client.websocket_connect(f"{API}/support/live") as admin_live,
+    ):
+        sign_in(seller_live, seller_ticket)
+        sign_in(investor_live, ticket(investor))
+        sign_in(admin_live, ticket(admin))
+        with client.websocket_connect(f"{API}/support/live") as replay:
+            replay.send_text(seller_ticket)
+            with pytest.raises(WebSocketDisconnect) as error:
+                replay.receive_text()
+            assert error.value.code == 1008
+
+        created = client.post(f"{API}/support/threads", headers=rakib,
+                              json={"topic": "cash", "text": "সাপোর্ট অনুরোধ", "client_request_id": "live-seller-1"})
+        assert created.status_code == 201
+        thread_id = created.json()["id"]
+        assert seller_live.receive_text() == admin_live.receive_text() == "changed"
+
+        reply = client.post(f"{API}/admin/support/threads/{thread_id}/messages", headers=admin,
+                            json={"text": "উত্তর পাঠানো হয়েছে", "client_request_id": "live-admin-1"})
+        assert reply.status_code == 200
+        assert seller_live.receive_text() == admin_live.receive_text() == "changed"
+        assert client.get(f"{API}/support/threads/{thread_id}", headers=rakib).json()["messages"][-1]["text"] == "উত্তর পাঠানো হয়েছে"
+        assert client.get(f"{API}/support/threads", headers=investor).json() == []
+
+        # An unrelated owner never appears in an investor's inbox, but their own message routes to both sides.
+        created = client.post(f"{API}/support/threads", headers=investor,
+                              json={"topic": "profit", "text": "আরেকটি প্রশ্ন", "client_request_id": "live-investor-1"})
+        assert created.status_code == 201
+        assert investor_live.receive_text() == admin_live.receive_text() == "changed"

@@ -100,6 +100,7 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
             child: id == null
                 ? _ChatBody(topic: widget.topic ?? 'other', topicLabel: widget.topicLabel ?? 'সাপোর্ট', thread: null)
                 : AsyncValueView<SupportThread>(
+                    keepDataOnReload: true,
                     value: ref.watch(supportThreadProvider(id)),
                     onRetry: () => ref.invalidate(supportThreadProvider(id)),
                     data: (t) => _ChatBody(topic: t.topic, topicLabel: t.topicLabel, thread: t),

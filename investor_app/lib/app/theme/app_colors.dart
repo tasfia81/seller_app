@@ -9,8 +9,20 @@ abstract final class AppColors {
   static const softGreen = Color(0xFFE4F2EB);
   static const softGreenText = Color(0xFF3C5A4D);
 
-  static const background = Color(0xFFF1F3F2);
+  static const background = Color(0xFFEDF4F0);
   static const surface = Colors.white;
+  static const glassSurface = Color(0xF5FFFFFF);
+  static const glassEdge = Color(0xFFD8E6DD);
+  static const glassGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Colors.white, Color(0xFFF3F9F5)],
+  );
+  static const backdropGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFE6F2EB), Color(0xFFF5F8F6), Color(0xFFEAF4EE)],
+  );
   static const textPrimary = Color(0xFF13201A);
   static const textSecondary = Color(0xFF5A6660);
   static const border = Color(0xFFE6EAE8);

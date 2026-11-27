@@ -145,17 +145,19 @@ class ErrorView extends StatelessWidget {
 
 /// Renders loading / error / data for an [AsyncValue] with retry.
 class AsyncValueView<T> extends StatelessWidget {
-  const AsyncValueView({super.key, required this.value, required this.data, this.onRetry, this.loading});
+  const AsyncValueView({super.key, required this.value, required this.data, this.onRetry, this.loading, this.keepDataOnReload = false});
 
   final AsyncValue<T> value;
   final Widget Function(T data) data;
   final VoidCallback? onRetry;
   final Widget? loading;
+  final bool keepDataOnReload;
 
   @override
   Widget build(BuildContext context) {
     return value.when(
       skipLoadingOnRefresh: true,
+      skipLoadingOnReload: keepDataOnReload,
       data: data,
       loading: () => loading ?? const LoadingView(),
       error: (e, _) => ErrorView(error: e, onRetry: onRetry),

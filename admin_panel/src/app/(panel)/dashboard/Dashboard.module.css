@@ -1,0 +1,8 @@
+.header h1 { font-size: 24px; }
+.content :global(.h2) { font-size: 18px; }
+.content :global(.qa a), .content :global(.pill) { font-size: 15px; }
+.content :global(.pill) { min-height: 40px; }
+.content :global(.mt span), .content :global(.mt small) { font-size: 14px; line-height: 1.5; }
+.content :global(.mt b) { font-size: clamp(24px, 1.65vw, 30px); }
+.content :global(table) { font-size: 15px; }
+.content :global(th), .content :global(.mu) { font-size: 14px; }

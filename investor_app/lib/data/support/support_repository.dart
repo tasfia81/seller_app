@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/api/support_updates.dart';
 import '../auth/auth_repository.dart';
 
 /// One support conversation (a question to the office, with a topic).
@@ -78,9 +79,16 @@ class SupportTopic {
 
 final supportRepositoryProvider = Provider<SupportRepository>((ref) => SupportRepository(ref.watch(apiClientProvider)));
 
+final supportUpdatesProvider = StreamProvider.autoDispose<int>(
+  (ref) => supportUpdates(ref.watch(apiClientProvider)),
+);
+
 /// My conversations (refreshed when the support screen opens or is pulled).
 final supportThreadsProvider = FutureProvider.autoDispose<List<SupportThread>>(
-  (ref) => ref.watch(supportRepositoryProvider).myThreads(),
+  (ref) {
+    ref.watch(supportUpdatesProvider);
+    return ref.watch(supportRepositoryProvider).myThreads();
+  },
 );
 
 final supportTopicsProvider = FutureProvider.autoDispose<List<SupportTopic>>(

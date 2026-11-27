@@ -11,7 +11,7 @@ from ..core.utils import period_range, today
 from ..core.errors import NotFound
 from ..schemas import (AdminNoteIn, AssignmentIn, CategoryIn, CompensationIn, DamageIn, ExceptionIn, ExpenseIn, PayoutIn, ProductIn, ProductUpdateIn,
                        RequestInfoIn, ReturnApproveIn, ReviewRejectIn, SellerUpdateIn, SettingsIn, StockReceiptIn, TransferIn, VerifyHandoverIn)
-from ..services import applications, catalog, finance, inventory, reports, sales, sellers, settlements, system
+from ..services import applications, catalog, finance, inventory, reports, sales, sellers, settlements, support_live, system
 from ..services.common import ASSIGNMENTS, DAMAGES, PRODUCTS, RETURNS, SELLERS, require
 from .uploads import ALLOWED, resolve
 
@@ -269,7 +269,7 @@ def create_assignment(body: AssignmentIn, admin: AdminDep, store: StoreDep):
 @router.get("/assignments/{assignment_id}", summary="বরাদ্দের বিস্তারিত")
 def get_assignment(assignment_id: str, admin: AdminDep, store: StoreDep):
     with store.transaction() as tx:
-        return inventory.assignment_view(require(tx, ASSIGNMENTS, assignment_id, "বরাদ্দ পাওয়া যায়নি।"))
+        return inventory.assignment_view(tx, require(tx, ASSIGNMENTS, assignment_id, "বরাদ্দ পাওয়া যায়নি।"))
 
 
 @router.post("/assignments/{assignment_id}/cancel", summary="হস্তান্তরের আগে বাতিল")
@@ -362,13 +362,19 @@ def list_handovers(admin: AdminDep, store: StoreDep, status: Literal["pending", 
 @router.post("/cash/handovers/{handover_id}/verify", summary="ক্যাশ গ্রহণ নিশ্চিত (কম পেলে গরমিল থাকে)")
 def verify_handover(handover_id: str, body: VerifyHandoverIn, admin: AdminDep, store: StoreDep):
     with store.transaction() as tx:
-        return finance.verify_handover(tx, admin, handover_id, body)
+        result = finance.verify_handover(tx, admin, handover_id, body)
+        seller = tx.get(SELLERS, result["seller_id"])
+    support_live.publish(seller.get("user_id") if seller else None)
+    return result
 
 
 @router.post("/cash/handovers/{handover_id}/reject", summary="ক্যাশ জমা প্রত্যাখ্যান")
 def reject_handover(handover_id: str, body: AdminNoteIn, admin: AdminDep, store: StoreDep):
     with store.transaction() as tx:
-        return finance.reject_handover(tx, admin, handover_id, body.note)
+        result = finance.reject_handover(tx, admin, handover_id, body.note)
+        seller = tx.get(SELLERS, result["seller_id"])
+    support_live.publish(seller.get("user_id") if seller else None)
+    return result
 
 
 @router.get("/payouts", summary="সেলার পেমেন্টের সারাংশ ও ইতিহাস")

@@ -24,16 +24,6 @@ function href(f: SupportFilter, id?: string) {
 }
 
 export function SupportView({ inbox, thread, filter }: { inbox: ApiSupportInbox; thread: Thread | null; filter: SupportFilter }) {
-  const router = useRouter();
-
-  // New messages arrive without a reload: re-read every 15 s while the tab is visible.
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (document.visibilityState === "visible") router.refresh();
-    }, 15_000);
-    return () => clearInterval(t);
-  }, [router]);
-
   const c = inbox.counts;
   return (
     <>

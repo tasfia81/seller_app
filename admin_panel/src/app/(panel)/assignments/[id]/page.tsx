@@ -32,7 +32,7 @@ async function AssignmentDetail({ params }: { params: Promise<{ id: string }> })
     );
   }
   const [a, sellers] = r.data;
-  const t = a.totals;
+
   const live = a.status === "active" || a.status === "partially_returned";
 
   return (
@@ -48,10 +48,16 @@ async function AssignmentDetail({ params }: { params: Promise<{ id: string }> })
           <Chip>{a.price_mode === "flexible" ? "দাম সীমার মধ্যে" : "নির্ধারিত দাম"}</Chip>
         </section>
         <div className="kpis">
-          <Kpi label="দেওয়া" value={bnDigits(t.quantity)} />
-          <Kpi label="বিক্রি" value={bnDigits(t.sold)} />
-          <Kpi label="ফেরত" value={bnDigits(t.returned)} />
-          <Kpi label="সেলারের হাতে বাকি" value={bnDigits(t.remaining)} tone="good" />
+          {[...new Set(a.items.map((item) => item.unit_label))].map((unit) => {
+            const items = a.items.filter((item) => item.unit_label === unit);
+            const sum = (key: "quantity" | "sold" | "returned" | "remaining") =>
+              `${bnDigits(Number(items.reduce((total, item) => total + item[key], 0).toFixed(4)))} ${unit}`;
+            return <Kpi key={unit}
+              label={a.status === "pending_handover" ? "গ্রহণের অপেক্ষায়" : a.status === "cancelled" ? "বাতিল করা বরাদ্দ" : "সেলারের হাতে বাকি"}
+              value={sum(a.status === "cancelled" ? "quantity" : "remaining")}
+              note={a.accepted_at ? `বিক্রি ${sum("sold")} · ফেরত ${sum("returned")}` : undefined}
+              tone={a.status === "pending_handover" ? "warn" : undefined} />;
+          })}
         </div>
         <div className="two">
           <div className="a">
@@ -63,10 +69,10 @@ async function AssignmentDetail({ params }: { params: Promise<{ id: string }> })
                     <tr key={i.product_id + (i.variant ?? "")}>
                       <td><b style={{ fontWeight: 600 }}>{i.name}</b></td>
                       <td>{i.variant ?? "—"}</td>
-                      <td className="n">{bnDigits(i.quantity)}</td>
-                      <td className="n">{bnDigits(i.sold)}</td>
-                      <td className="n">{bnDigits(i.returned)}</td>
-                      <td className="n"><b>{bnDigits(i.remaining)}</b></td>
+                      <td className="n">{bnDigits(i.quantity)} {i.unit_label}</td>
+                      <td className="n">{bnDigits(i.sold)} {i.unit_label}</td>
+                      <td className="n">{bnDigits(i.returned)} {i.unit_label}</td>
+                      <td className="n"><b>{bnDigits(i.remaining)} {i.unit_label}</b></td>
                     </tr>
                   ))}
                 </tbody>
@@ -78,10 +84,10 @@ async function AssignmentDetail({ params }: { params: Promise<{ id: string }> })
                 <div key={k} className="tl"><i style={{ background: k === 0 ? "#168447" : "#A9D6BB" }} /><div><div className="t1">{h.title}</div><div className="mu">{bnDateTime(h.at)} · {h.by}</div></div></div>
               ))}
             </section>
-            <AssignmentActions id={a.id} status={a.status} remaining={t.remaining} />
+            <AssignmentActions id={a.id} status={a.status} remaining={a.totals.remaining} />
           </div>
           <div className="b">
-            {live && t.remaining > 0 ? (
+            {live && a.totals.remaining > 0 ? (
               <StockMoveForm sellerId={a.seller_id} items={a.items.filter((i) => i.remaining > 0)} others={sellers.filter((s) => s.status === "active" && s.id !== a.seller_id)} />
             ) : null}
           </div>

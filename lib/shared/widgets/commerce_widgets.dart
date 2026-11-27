@@ -58,38 +58,35 @@ class SaleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pending = sale.status == SaleStatus.pendingSync;
     return AppCard(
       onTap: onTap,
-      borderColor: pending ? AppColors.warningBorder : AppColors.border,
-      padding: EdgeInsets.all(12.r),
+      padding: EdgeInsets.all(14.r),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Text(
-              '${sale.productName}${sale.variant == null ? '' : ' (${sale.variant})'} · ${BnFormat.qty(sale.quantity)} ${sale.unit.label}',
-              style: AppText.bodyStrong,
-            ),
-          ),
-          SizedBox(width: 8.w),
-          Text(BnFormat.money(sale.total), style: AppText.amount(15)),
+          Expanded(child: Text(sale.productTitle, style: AppText.bodyStrong)),
+          SizedBox(width: 12.w),
+          Text(BnFormat.money(sale.total), style: AppText.amount(17)),
         ]),
-        SizedBox(height: 6.h),
+        SizedBox(height: 5.h),
+        Text([
+          if (sale.variant != null) 'সাইজ ${sale.variant}',
+          '${BnFormat.qty(sale.quantity)} ${sale.unit.label}',
+          sale.payment.label,
+        ].join(' · '), style: AppText.caption),
+        SizedBox(height: 10.h),
+        Divider(height: 1, color: AppColors.border),
+        SizedBox(height: 8.h),
         Row(children: [
           Expanded(
-            child: Text(
-              [if (!pending) '#${sale.id}', BnFormat.time(sale.time), sale.payment.label].join(' · '),
-              style: AppText.caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text('${sale.saleNumber} · ${BnFormat.time(sale.time)}', style: AppText.small),
           ),
+          SizedBox(width: 6.w),
           StatusChip.sale(sale.status),
+          if (onTap != null) ...[
+            SizedBox(width: 4.w),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 18),
+          ],
         ]),
-        if (pending) ...[
-          SizedBox(height: 4.h),
-          Text('ইন্টারনেট ফিরলে নিজে থেকে পাঠানো হবে', style: AppText.small.copyWith(color: AppColors.warningText)),
-        ],
       ]),
     );
   }

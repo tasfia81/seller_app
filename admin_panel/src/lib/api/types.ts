@@ -39,7 +39,7 @@ export interface ApiDashboard {
     active_sellers: number;
     total_active_sellers: number;
   };
-  hourly_sales: { hour: number; total: number }[];
+  hourly_sales: { hour: number; total: number; count: number }[];
   seller_performance: { seller_id: string; name: string; sales: number; quantity: number; cash_due: number; change_percent: number | null }[];
   recent_sales: ApiSale[];
   inventory_alerts: {
@@ -105,6 +105,7 @@ export interface ApiSellerRow {
   policy_label: string;
   today_sales: number;
   today_items: number;
+  available: number;
   cash_due: number;
 }
 
@@ -194,7 +195,7 @@ export interface ApiAssignment {
   policy?: string;
   created_at: string;
   accepted_at: string | null;
-  items: { product_id: string; variant: string | null; name: string; quantity: number; sold: number; returned: number; remaining: number }[];
+  items: { product_id: string; variant: string | null; name: string; unit_label: string; quantity: number; sold: number; returned: number; remaining: number }[];
   totals: { quantity: number; sold: number; returned: number; remaining: number };
   history: { title: string; by: string; at: string }[];
 }

@@ -1,8 +1,11 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/investor_repository.dart';
+import '../theme/app_colors.dart';
 import '../../features/menu/side_menu.dart';
 
 /// Bottom tabs + the "push-aside" side menu from the design: the current
@@ -49,16 +52,13 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
 
     final screen = RepaintBoundary(
       child: Scaffold(
-        body: widget.shell,
-        bottomNavigationBar: NavigationBar(
+        body: DecoratedBox(
+          decoration: const BoxDecoration(gradient: AppColors.backdropGradient),
+          child: widget.shell,
+        ),
+        bottomNavigationBar: _GlassNavigationBar(
           selectedIndex: widget.shell.currentIndex,
-          onDestinationSelected: _onTab,
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'হোম'),
-            NavigationDestination(icon: Icon(Icons.pie_chart_outline_rounded), selectedIcon: Icon(Icons.pie_chart_rounded), label: 'পোর্টফোলিও'),
-            NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded), label: 'লেনদেন'),
-            NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart_rounded), label: 'রিপোর্ট'),
-          ],
+          onSelected: _onTab,
         ),
       ),
     );
@@ -117,6 +117,60 @@ class _MainShellState extends ConsumerState<MainShell> with SingleTickerProvider
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+
+class _GlassNavigationBar extends StatelessWidget {
+  const _GlassNavigationBar({required this.selectedIndex, required this.onSelected});
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(28);
+    return DecoratedBox(
+      decoration: const BoxDecoration(gradient: AppColors.backdropGradient),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: const [
+              BoxShadow(color: Color(0x1608452F), blurRadius: 18, offset: Offset(0, 5)),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: DecoratedBox(
+                position: DecorationPosition.foreground,
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(color: const Color(0xEFFFFFFF)),
+                ),
+                child: NavigationBar(
+                  backgroundColor: const Color(0xCAFFFFFF),
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: onSelected,
+                  destinations: const [
+                    NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'হোম'),
+                    NavigationDestination(icon: Icon(Icons.pie_chart_outline_rounded), selectedIcon: Icon(Icons.pie_chart_rounded), label: 'পোর্টফোলিও'),
+                    NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded), label: 'লেনদেন'),
+                    NavigationDestination(icon: Icon(Icons.bar_chart_outlined), selectedIcon: Icon(Icons.bar_chart_rounded), label: 'রিপোর্ট'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

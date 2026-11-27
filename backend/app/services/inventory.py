@@ -111,18 +111,23 @@ def create_assignment(tx: Tx, admin: dict[str, Any], data: AssignmentIn) -> dict
     tx.put(ASSIGNMENTS, doc)
     audit(tx, admin, "assignment.created", doc["id"], f"{seller['name']} · {sum(i['quantity'] for i in items):g} ইউনিট")
     notify(tx, f"seller:{seller['id']}", "stock_assigned", "নতুন স্টক বরাদ্দ", f"{len(items)}টি পণ্য আপনাকে দেওয়া হয়েছে। হাতে পেয়ে অ্যাপে নিশ্চিত করুন।", f"/assignments/{doc['id']}")
-    return assignment_view(doc)
+    return assignment_view(tx, doc)
 
 
-def assignment_view(a: dict[str, Any]) -> dict[str, Any]:
-    items = [{**i, "remaining": i["quantity"] - i["sold"] - i["returned"]} for i in a["items"]]
+def assignment_view(tx: Tx, a: dict[str, Any]) -> dict[str, Any]:
+    items = []
+    for item in a["items"]:
+        product = tx.get(PRODUCTS, item["product_id"]) or {}
+        unit = product.get("unit", "piece")
+        items.append({**item, "unit": unit, "unit_label": UNIT_LABEL[unit],
+                      "remaining": item["quantity"] - item["sold"] - item["returned"]})
     return {**a, "items": items, "status_label": ASSIGNMENT_LABEL[a["status"]],
             "totals": {k: sum(i[k] for i in items) for k in ("quantity", "sold", "returned", "remaining")}}
 
 
 def list_assignments(tx: Tx, seller_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
     items = tx.find(ASSIGNMENTS, lambda a: (not seller_id or a["seller_id"] == seller_id) and (not status or a["status"] == status))
-    return [assignment_view(a) for a in sorted(items, key=lambda a: a["created_at"], reverse=True)]
+    return [assignment_view(tx, a) for a in sorted(items, key=lambda a: a["created_at"], reverse=True)]
 
 
 def accept_assignment(tx: Tx, seller: dict[str, Any], assignment_id: str) -> dict[str, Any]:
@@ -144,7 +149,7 @@ def accept_assignment(tx: Tx, seller: dict[str, Any], assignment_id: str) -> dic
     a["history"].append({"title": "সেলার স্টক বুঝে নিয়েছেন", "by": seller["name"], "at": a["accepted_at"]})
     tx.put(ASSIGNMENTS, a)
     notify(tx, "admin", "assignment_accepted", "সেলার স্টক বুঝে নিয়েছেন", f"{seller['name']} · #{a['id']}", f"/assignments/{a['id']}")
-    return assignment_view(a)
+    return assignment_view(tx, a)
 
 
 def cancel_assignment(tx: Tx, admin: dict[str, Any], assignment_id: str) -> dict[str, Any]:
@@ -160,7 +165,7 @@ def cancel_assignment(tx: Tx, admin: dict[str, Any], assignment_id: str) -> dict
     a["history"].append({"title": "বাতিল", "by": admin["name"], "at": now_iso()})
     tx.put(ASSIGNMENTS, a)
     audit(tx, admin, "assignment.cancelled", assignment_id, a["seller_name"])
-    return assignment_view(a)
+    return assignment_view(tx, a)
 
 
 def close_assignment(tx: Tx, admin: dict[str, Any], assignment_id: str) -> dict[str, Any]:
@@ -174,7 +179,7 @@ def close_assignment(tx: Tx, admin: dict[str, Any], assignment_id: str) -> dict[
     a["history"].append({"title": "বন্ধ", "by": admin["name"], "at": now_iso()})
     tx.put(ASSIGNMENTS, a)
     audit(tx, admin, "assignment.closed", assignment_id, a["seller_name"])
-    return assignment_view(a)
+    return assignment_view(tx, a)
 
 
 def apply_to_assignments(tx: Tx, seller_id: str, product_id: str, variant: str | None, qty: float, field: str) -> None:
@@ -229,7 +234,7 @@ def transfer(tx: Tx, admin: dict[str, Any], data: TransferIn) -> dict[str, Any]:
     tx.put(ASSIGNMENTS, doc)
     audit(tx, admin, "stock.transfer", doc["id"], f"{seller['name']} → {to['name']} · {data.quantity:g}")
     notify(tx, f"seller:{to['id']}", "stock_assigned", "নতুন স্টক বরাদ্দ", f"{product['name']} · {data.quantity:g}। হাতে পেয়ে নিশ্চিত করুন।")
-    return assignment_view(doc)
+    return assignment_view(tx, doc)
 
 
 def record_damage(tx: Tx, admin: dict[str, Any], data: DamageIn) -> dict[str, Any]:

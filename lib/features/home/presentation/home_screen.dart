@@ -25,7 +25,7 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 84.h.clamp(76.0, 96.0).toDouble(),
+        toolbarHeight: 64.h.clamp(60.0, 74.0).toDouble(),
         titleSpacing: 16.w,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -33,18 +33,32 @@ class HomeScreen extends ConsumerWidget {
           children: [
             Text('${BnFormat.greeting(now)},', style: AppText.caption),
             Text(seller?.name ?? ' ', style: AppText.pageTitle),
-            Text(BnFormat.weekdayDate(now), style: AppText.caption),
           ],
         ),
         actions: [
           IconButton(
             tooltip: unread > 0 ? 'নোটিফিকেশন, ${BnFormat.digits('$unread')}টি নতুন' : 'নোটিফিকেশন',
             onPressed: () => context.push(AppRoutes.notifications),
-            icon: Badge(
-              isLabelVisible: unread > 0,
-              smallSize: 9,
-              backgroundColor: AppColors.error,
-              child: const Icon(Icons.notifications_none_rounded),
+            padding: EdgeInsets.zero,
+            icon: Container(
+              width: 40.r,
+              height: 40.r,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.mint,
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Badge(
+                isLabelVisible: unread > 0,
+                smallSize: 8,
+                backgroundColor: AppColors.error,
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  size: 22.r,
+                  color: AppColors.darkGreen,
+                ),
+              ),
             ),
           ),
           SizedBox(width: 8.w),
@@ -62,6 +76,7 @@ class HomeScreen extends ConsumerWidget {
               children: [
                 HeroAmountCard(
                   label: 'আজকের মোট বিক্রি',
+                  dateLabel: BnFormat.weekdayDate(now),
                   amount: BnFormat.money(s.todaySales),
                   caption: s.salesCount == 0
                       ? 'আজ এখনো কোনো বিক্রি হয়নি'
@@ -69,35 +84,43 @@ class HomeScreen extends ConsumerWidget {
                           '${s.lastSaleAt == null ? '' : ' · সর্বশেষ ${BnFormat.time(s.lastSaleAt!)}'}',
                 ),
                 SizedBox(height: 12.h),
-                Row(children: [
-                  Expanded(
-                      child: _tap(context, AppRoutes.sales,
-                          MetricTile(label: 'বিক্রিত পণ্য', value: '${BnFormat.digits('${s.itemsSold}')}টি'))),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                      child: _tap(
-                          context,
-                          AppRoutes.earnings,
-                          MetricTile(
-                              label: 'আমার আজকের আয়',
-                              value: BnFormat.money(s.todayEarnings),
-                              valueColor: AppColors.successText))),
-                ]),
+                _MetricRow(
+                  first: _HomeMetric(
+                    label: 'বিক্রিত পণ্য',
+                    amount: BnFormat.qty(s.itemsSold),
+                    unit: 'টি',
+                    icon: Icons.receipt_long_outlined,
+                    onTap: () => context.go(AppRoutes.sales),
+                  ),
+                  second: _HomeMetric(
+                    label: 'আমার আজকের আয়',
+                    amount: BnFormat.money(s.todayEarnings),
+                    icon: Icons.trending_up_rounded,
+                    surface: AppColors.infoSurface,
+                    accent: AppColors.successText,
+                    onTap: () => context.push(AppRoutes.earnings),
+                  ),
+                ),
                 SizedBox(height: 10.h),
-                Row(children: [
-                  Expanded(
-                      child: _tap(context, AppRoutes.inventory,
-                          MetricTile(label: 'হাতে থাকা স্টক', value: '${BnFormat.qty(s.availableStock)}টি'))),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                      child: _tap(
-                          context,
-                          AppRoutes.cashHandover,
-                          MetricTile(
-                              label: 'জমা দিতে হবে',
-                              value: BnFormat.money(s.cashToSubmit),
-                              warning: s.cashToSubmit > 0))),
-                ]),
+                _MetricRow(
+                  first: _HomeMetric(
+                    label: 'হাতে থাকা স্টক',
+                    amount: BnFormat.qty(s.availableStock),
+                    unit: 'টি',
+                    icon: Icons.inventory_2_outlined,
+                    onTap: () => context.push(AppRoutes.inventory),
+                  ),
+                  second: _HomeMetric(
+                    label: 'জমা দিতে হবে',
+                    amount: BnFormat.money(s.cashToSubmit),
+                    icon: Icons.account_balance_wallet_outlined,
+                    surface: s.cashToSubmit > 0 ? AppColors.warningSurface : AppColors.surface,
+                    border: s.cashToSubmit > 0 ? AppColors.warningBorder : AppColors.border,
+                    accent: s.cashToSubmit > 0 ? AppColors.warningText : AppColors.successText,
+                    iconSurface: s.cashToSubmit > 0 ? AppColors.warningSoft : AppColors.mint,
+                    onTap: () => context.push(AppRoutes.cashHandover),
+                  ),
+                ),
                 SizedBox(height: 14.h),
                 AppButton(
                   label: 'নতুন বিক্রি যোগ করুন',
@@ -151,10 +174,98 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _tap(BuildContext context, String route, Widget child) => InkWell(
-        borderRadius: BorderRadius.circular(12.r),
-        onTap: () => route == AppRoutes.sales ? context.go(route) : context.push(route),
-        child: child,
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({required this.first, required this.second});
+
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) => IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: first),
+            SizedBox(width: 10.w),
+            Expanded(child: second),
+          ],
+        ),
       );
+}
+
+class _HomeMetric extends StatelessWidget {
+  const _HomeMetric({
+    required this.label,
+    required this.amount,
+    required this.icon,
+    required this.onTap,
+    this.unit,
+    this.surface = AppColors.surface,
+    this.border = AppColors.border,
+    this.accent = AppColors.textPrimary,
+    this.iconSurface = AppColors.mint,
+  });
+
+  final String label;
+  final String amount;
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? unit;
+  final Color surface;
+  final Color border;
+  final Color accent;
+  final Color iconSurface;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      color: surface,
+      borderColor: border,
+      padding: EdgeInsets.fromLTRB(14.w, 13.h, 12.w, 13.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    TextSpan(
+                      text: amount,
+                      children: [
+                        if (unit != null)
+                          TextSpan(
+                            text: unit,
+                            style: AppText.bodyStrong.copyWith(color: accent),
+                          ),
+                      ],
+                    ),
+                    style: AppText.amount(29, color: accent),
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Container(
+                width: 28.r,
+                height: 28.r,
+                decoration: BoxDecoration(
+                  color: iconSurface,
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(icon, size: 16.r, color: accent),
+              ),
+            ],
+          ),
+          SizedBox(height: 6.h),
+          Text(label, style: AppText.caption.copyWith(color: AppColors.textBody)),
+        ],
+      ),
+    );
+  }
 }

@@ -39,7 +39,8 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
   bool _loading = false;
   bool _sending = false;
   String _requestId = SupportRepository.newRequestId();
-  Timer? _poll;
+  bool _refreshAfterSend = false;
+  int _loadVersion = 0;
 
   SupportRepository get _repo => ref.read(supportRepositoryProvider);
 
@@ -50,15 +51,11 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
       _loading = true;
       _load();
     }
-    // New replies show up while the chat is open.
-    _poll = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (_thread != null && !_sending) _load(quiet: true);
-    });
+
   }
 
   @override
   void dispose() {
-    _poll?.cancel();
     _text.dispose();
     _scroll.dispose();
     super.dispose();
@@ -67,9 +64,10 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
   Future<void> _load({bool quiet = false}) async {
     final id = _thread?.id ?? widget.threadId;
     if (id == null) return;
+    final version = ++_loadVersion;
     try {
       final t = await _repo.open(id);
-      if (!mounted) return;
+      if (!mounted || version != _loadVersion) return;
       final grew = t.messages.length != (_thread?.messages.length ?? 0);
       setState(() {
         _thread = t;
@@ -78,7 +76,7 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
       });
       if (grew) _toBottom();
     } on ApiException catch (e) {
-      if (!mounted || quiet) return;
+      if (!mounted || (quiet && !_loading) || version != _loadVersion) return;
       setState(() {
         _error = e.message;
         _loading = false;
@@ -97,6 +95,7 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
   Future<void> _send([String? preset]) async {
     final body = (preset ?? _text.text).trim();
     if (body.isEmpty || _sending) return;
+    _loadVersion++;
     setState(() => _sending = true);
     try {
       final current = _thread;
@@ -113,12 +112,26 @@ class _SupportChatScreenState extends ConsumerState<SupportChatScreen> {
       // Text stays in the box; the same request id is reused on retry, so it is never stored twice.
       if (mounted) showDemoNotice(context, e.message);
     } finally {
-      if (mounted) setState(() => _sending = false);
+      if (mounted) {
+        setState(() => _sending = false);
+        if (_refreshAfterSend) {
+          _refreshAfterSend = false;
+          unawaited(_load(quiet: true));
+        }
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(supportUpdatesProvider, (_, next) {
+      if (!next.hasValue) return;
+      if (_sending) {
+        _refreshAfterSend = true;
+      } else {
+        unawaited(_load(quiet: true));
+      }
+    });
     final t = _thread;
     final topic = t?.topic ?? widget.topic ?? 'other';
     final topicLabel = t?.topicLabel ?? widget.topicLabel ?? 'সাপোর্ট';

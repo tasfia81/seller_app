@@ -87,6 +87,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 SizedBox(height: 16.h),
                 PasswordField(
                   label: 'পাসওয়ার্ড বা পিন',
+                  hint: 'অ্যাকাউন্টের পাসওয়ার্ড লিখুন',
                   controller: _password,
                   textInputAction: TextInputAction.done,
                   validator: Validators.auth((v) => Validators.required(v, 'পাসওয়ার্ড দিন।')),

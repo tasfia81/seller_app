@@ -23,7 +23,7 @@ export function StockReceiptForm({ products }: { products: ApiProduct[] }) {
 
   if (!products.length) {
     return (
-      <section className="drawer">
+      <section className="drawer" id="receive-stock">
         <h2 className="h2">স্টক গ্রহণ</h2>
         <div className="mu">চালু কোনো পণ্য নেই। আগে পণ্য যোগ করুন।</div>
       </section>
@@ -52,7 +52,7 @@ export function StockReceiptForm({ products }: { products: ApiProduct[] }) {
     });
 
   return (
-    <section className="drawer">
+    <section className="drawer" id="receive-stock">
       <h2 className="h2">স্টক গ্রহণ (সরবরাহকারী থেকে)</h2>
       <div className="f">
         <label htmlFor="sp">পণ্য <i>*</i></label>

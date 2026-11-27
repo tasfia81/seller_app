@@ -11,12 +11,14 @@ Future<bool> showConfirmDialog(
   String confirmLabel = 'নিশ্চিত করুন',
   String cancelLabel = 'বাতিল',
   bool destructive = false,
+  bool scrollable = false,
 }) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: Text(title),
       content: Text(message),
+      scrollable: scrollable,
       actionsPadding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
       actions: [
         TextButton(

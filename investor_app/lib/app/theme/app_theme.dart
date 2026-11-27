@@ -27,7 +27,7 @@ ThemeData buildAppTheme() {
         .apply(bodyColor: AppColors.textPrimary, displayColor: AppColors.textPrimary),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AppColors.glassSurface,
       contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
       hintStyle: TextStyle(fontFamily: font, color: AppColors.textSecondary, fontSize: 15.sp),
       border: border(AppColors.borderStrong),
@@ -81,7 +81,7 @@ ThemeData buildAppTheme() {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
     ),
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.glassSurface,
       showDragHandle: true,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))),
     ),
@@ -91,7 +91,7 @@ ThemeData buildAppTheme() {
     ),
     dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.glassSurface,
       surfaceTintColor: Colors.transparent,
       indicatorColor: AppColors.softGreen,
       height: 68.h.clamp(64, 76).toDouble(),

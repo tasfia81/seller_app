@@ -1,0 +1,5 @@
+bKash and Nagad: brand marks from https://github.com/mdmubarokhosin/Bd-MFS-Logo/tree/main/logos/png
+The standalone symbols are crops of the brand artwork. Trademarks belong to their respective owners.
+
+Handshake and Landmark: https://github.com/lucide-icons/lucide/tree/main/icons
+Rendered as PNG and colored to match the app. See lucide-LICENSE.txt.

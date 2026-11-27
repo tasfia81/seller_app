@@ -5,13 +5,15 @@ import '../../../core/api/api_client.dart';
 import '../../../core/api/seller_payload.dart';
 import '../../../core/constants/app_config.dart';
 import '../../auth/data/seller_session.dart';
+import '../../support/data/support_repository.dart';
 import '../../../core/errors/failure.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/finance.dart';
 
+typedef CashSnapshot = ({CashSummary summary, List<CashHandover> history});
+
 abstract interface class CashRepository {
-  Future<CashSummary> getSummary();
-  Future<List<CashHandover>> getHistory();
+  Future<CashSnapshot> getCash();
 
   /// Submits a handover. It stays "pending verification" until an admin
   /// confirms receipt — the app never marks cash as received by itself.
@@ -24,16 +26,22 @@ abstract interface class CashRepository {
 }
 
 class PreviewCashRepository implements CashRepository {
-  @override
-  Future<CashSummary> getSummary() async {
-    DemoData.ensureEnabled();
-    return DemoData.cash;
-  }
+  final _submitted = <CashHandover>[];
 
   @override
-  Future<List<CashHandover>> getHistory() async {
+  Future<CashSnapshot> getCash() async {
     DemoData.ensureEnabled();
-    return DemoData.handovers;
+    final cash = DemoData.cash;
+    final submitted = _submitted.fold<double>(0, (sum, item) => sum + item.amount);
+    return (
+      summary: CashSummary(
+        collected: cash.collected,
+        verified: cash.verified,
+        pendingVerification: cash.pendingVerification + submitted,
+        remaining: (cash.remaining - submitted).clamp(0, double.infinity).toDouble(),
+      ),
+      history: [..._submitted, ...DemoData.handovers],
+    );
   }
 
   @override
@@ -47,28 +55,36 @@ class PreviewCashRepository implements CashRepository {
     if (amount <= 0) throw const ValidationFailure('সঠিক পরিমাণ দিন।');
     await Future<void>.delayed(const Duration(milliseconds: 400));
     // Preview: recorded as pending verification, never as received.
-    return CashHandover(
-      id: 'ডেমো',
+    final handover = CashHandover(
+      id: 'preview-${_submitted.length + 1}',
       amount: amount,
       method: method,
       submittedAt: DateTime.now(),
       status: RequestStatus.pending,
       reference: reference,
     );
+    _submitted.insert(0, handover);
+    return handover;
   }
 }
 
 final cashRepositoryProvider = Provider<CashRepository>((ref) => AppConfig.previewAuth
     ? PreviewCashRepository()
     : ApiCashRepository(ref.watch(sellerSessionProvider).api));
-final cashSummaryProvider = FutureProvider.autoDispose((ref) => ref.watch(cashRepositoryProvider).getSummary());
-final cashHistoryProvider = FutureProvider.autoDispose((ref) => ref.watch(cashRepositoryProvider).getHistory());
+final cashSnapshotProvider = FutureProvider.autoDispose((ref) {
+  ref.listen(supportUpdatesProvider, (_, next) {
+    if (next.hasValue) ref.invalidateSelf();
+  });
+  return ref.watch(cashRepositoryProvider).getCash();
+});
+
+final cashSummaryProvider = Provider.autoDispose(
+  (ref) => ref.watch(cashSnapshotProvider).whenData((cash) => cash.summary),
+);
 
 class ApiCashRepository implements CashRepository {
   ApiCashRepository(this.api);
   final ApiClient api;
-
-  Future<Json> _cash() async => jsonMap(await api.get('/seller/cash'));
 
   CashHandover _handover(Json row) => CashHandover(
     id: row['id'] as String, amount: number(row, 'amount'),
@@ -78,15 +94,19 @@ class ApiCashRepository implements CashRepository {
   );
 
   @override
-  Future<CashSummary> getSummary() async {
-    final row = jsonMap((await _cash())['summary']);
-    return CashSummary(collected: number(row, 'collected'), verified: number(row, 'verified'),
-      pendingVerification: number(row, 'pending_verification'), remaining: number(row, 'to_submit'));
+  Future<CashSnapshot> getCash() async {
+    final cash = jsonMap(await api.get('/seller/cash'));
+    final row = jsonMap(cash['summary']);
+    return (
+      summary: CashSummary(
+        collected: number(row, 'collected'),
+        verified: number(row, 'verified'),
+        pendingVerification: number(row, 'pending_verification'),
+        remaining: number(row, 'to_submit'),
+      ),
+      history: jsonRows(cash['history']).map(_handover).toList(),
+    );
   }
-
-  @override
-  Future<List<CashHandover>> getHistory() async =>
-      jsonRows((await _cash())['history']).map(_handover).toList();
 
   @override
   Future<CashHandover> submit({required double amount, required HandoverMethod method, String? reference, String? note}) async =>

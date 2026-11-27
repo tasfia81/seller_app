@@ -29,6 +29,17 @@ class Sale {
   final String? variant;
   final String? note;
 
+  String get productTitle {
+    final suffix = ' ($variant)';
+    var title = productName;
+    while (variant != null && title.endsWith(suffix)) {
+      title = title.substring(0, title.length - suffix.length);
+    }
+    return title.isEmpty ? productName : title;
+  }
+
+  String get saleNumber => '#${receiptNo ?? id}';
+
   double get total => quantity * unitPrice;
 }
 

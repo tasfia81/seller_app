@@ -62,8 +62,12 @@ def _allowed_price(tx: Tx, seller: dict[str, Any], product: dict[str, Any], pric
                        details={"min": product["min_price"], "max": product["max_price"]})
 
 
+def find_sale_attempt(tx: Tx, seller_id: str, request_id: str) -> dict[str, Any] | None:
+    return tx.first(SALES, lambda s: s["seller_id"] == seller_id and s.get("client_request_id") == request_id)
+
+
 def create_sale(tx: Tx, seller: dict[str, Any], data: SaleIn) -> dict[str, Any]:
-    existing = tx.first(SALES, lambda s: s["seller_id"] == seller["id"] and s["client_request_id"] == data.client_request_id)
+    existing = find_sale_attempt(tx, seller["id"], data.client_request_id)
     if existing:
         return {**sale_view(tx, existing), "duplicate": True}
     closed = tx.get(SETTLEMENTS, f"{seller['id']}|{today().isoformat()}")
@@ -99,6 +103,7 @@ def create_sale(tx: Tx, seller: dict[str, Any], data: SaleIn) -> dict[str, Any]:
     add_earning(tx, seller["id"], commission, "sale", sale["id"])
     if ss["qty"] <= product["low_stock_at"] / 4:
         notify(tx, "admin", "seller_low_stock", "সেলারের কাছে স্টক কম", f"{seller['name']} · {product_name(tx, product['id'], data.variant)} · {ss['qty']:g} বাকি")
+    notify(tx, "admin", "sale_created", "নতুন বিক্রি", f"{seller['name']} · {sale['receipt_no']} · ৳{sale_view(tx, sale)['total']:g}", f"/sales?id={sale['id']}")
     return {**sale_view(tx, sale), "duplicate": False}
 
 

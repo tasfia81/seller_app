@@ -22,10 +22,12 @@ export function useNavCounts() {
         })
         .catch(() => {});
     load();
+    window.addEventListener("admin-live-update", load);
     const timer = setInterval(load, 30_000);
     return () => {
       alive = false;
       clearInterval(timer);
+      window.removeEventListener("admin-live-update", load);
     };
   }, [pathname]);
   return counts;

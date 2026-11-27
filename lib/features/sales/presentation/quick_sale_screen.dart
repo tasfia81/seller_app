@@ -16,8 +16,12 @@ import '../../../core/widgets/inputs.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/product.dart';
+import '../../../shared/models/sale.dart';
+import '../data/pending_sale_store.dart';
 import '../../../shared/widgets/commerce_widgets.dart';
 import '../../products/data/product_repository_impl.dart';
+import '../../home/data/dashboard_repository.dart';
+import 'sales_history_screen.dart';
 import 'quick_sale_controller.dart';
 
 /// The fastest screen in the app: product → quantity → confirm.
@@ -33,6 +37,8 @@ class QuickSaleScreen extends ConsumerStatefulWidget {
 class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
   final _price = TextEditingController();
   bool _initialised = false;
+  bool _checked = false;
+  bool _changingProduct = false;
 
   @override
   void dispose() {
@@ -45,35 +51,95 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     _price.text = ref.read(quickSaleProvider).priceText;
   }
 
-  Future<void> _pickProduct(List<Product> products) async {
-    final available = products.where((p) => !p.isOutOfStock).toList();
-    final p = await showModalBottomSheet<Product>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (ctx) => _ProductPickerSheet(products: available),
-    );
-    if (p != null) _select(p);
+  void _chooseProduct(Product product) {
+    FocusScope.of(context).unfocus();
+    if (ref.read(quickSaleProvider).product?.id != product.id) _select(product);
+    setState(() => _changingProduct = false);
+  }
+
+  bool _showConfirmed(Sale sale) {
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return false;
+    ref.invalidate(homeDataProvider);
+    ref.invalidate(assignedProductsProvider);
+    ref.invalidate(salesListProvider);
+    context.pushReplacement(AppRoutes.saleSuccess, extra: sale);
+    return true;
   }
 
   Future<void> _confirm() async {
     FocusScope.of(context).unfocus();
-    final sale = await ref.read(quickSaleProvider.notifier).submit();
-    if (sale != null && mounted) {
-      context.pushReplacement(AppRoutes.saleSuccess, extra: sale);
-    }
+    await ref.read(quickSaleProvider.notifier).submit(_showConfirmed);
+  }
+
+  Future<void> _recover({required bool resend}) async {
+    setState(() => _checked = false);
+    await ref.read(quickSaleProvider.notifier).recover(
+      resend: resend,
+      onConfirmed: _showConfirmed,
+    );
+    if (!mounted) return;
+    setState(() => _checked = !resend && ref.read(quickSaleProvider).error == null);
+  }
+
+  Widget _recovery(PendingSale pending, QuickSaleState state) {
+    final draft = pending.draft;
+    return ListView(
+      padding: EdgeInsets.all(16.r),
+      children: [
+        InfoBanner(
+          tone: BannerTone.warning,
+          icon: Icons.sync_problem_rounded,
+          text: state.submitting
+              ? 'বিক্রির তথ্য সার্ভারে দেখা হচ্ছে…'
+              : _checked
+                  ? 'সার্ভারে বিক্রিটি এখনো দেখা যাচ্ছে না। একই তথ্য আবার পাঠাতে পারেন।'
+                  : 'আগের বিক্রির অবস্থা যাচাই করুন। ফর্ম বন্ধ করলেও এই তথ্য এই ফোনে থাকবে।',
+        ),
+        SizedBox(height: 12.h),
+        AppCard(
+          padding: EdgeInsets.all(14.r),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(pending.productName, style: AppText.bodyStrong),
+            SizedBox(height: 6.h),
+            Text([
+              if (draft.variant != null) draft.variant!,
+              '${BnFormat.qty(draft.quantity)} ${pending.unit.label}',
+              draft.payment.label,
+            ].join(' · '), style: AppText.caption),
+            SizedBox(height: 6.h),
+            Text(BnFormat.money(draft.quantity * draft.unitPrice), style: AppText.amount(22)),
+          ]),
+        ),
+        if (state.error != null) ...[
+          SizedBox(height: 12.h),
+          InfoBanner(
+            tone: BannerTone.error,
+            icon: Icons.info_outline,
+            text: failureMessage(state.error!),
+          ),
+        ],
+        SizedBox(height: 16.h),
+        AppButton(
+          label: _checked ? 'একই বিক্রি আবার পাঠান' : 'বিক্রির অবস্থা যাচাই করুন',
+          loading: state.submitting,
+          onPressed: state.submitting ? null : () => _recover(resend: _checked),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final pendingValue = ref.watch(pendingSaleProvider);
+    final pending = pendingValue.valueOrNull;
     final productsValue = ref.watch(assignedProductsProvider);
     final state = ref.watch(quickSaleProvider);
     final ctrl = ref.read(quickSaleProvider.notifier);
 
     // Preselect the product passed from Products / Product details.
-    if (!_initialised && widget.productId != null && productsValue.hasValue) {
+    if (pendingValue.hasValue && pending == null && !_initialised && widget.productId != null && productsValue.hasValue) {
       _initialised = true;
-      final match = productsValue.value!.where((p) => p.id == widget.productId);
+      final match = productsValue.value!.where((p) => p.id == widget.productId && !p.isOutOfStock);
       if (match.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _select(match.first);
@@ -91,36 +157,48 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
         ),
         title: const Text('নতুন বিক্রি'),
       ),
-      body: AsyncValueView(
+      body: pending != null
+          ? _recovery(pending, state)
+          : !pendingValue.hasValue
+              ? AsyncValueView(
+                  value: pendingValue,
+                  onRetry: () => ref.invalidate(pendingSaleProvider),
+                  data: (_) => const SizedBox.shrink(),
+                )
+              : AsyncValueView(
         value: productsValue,
         onRetry: () => ref.invalidate(assignedProductsProvider),
-        data: (products) => ListView(
+        data: (products) => p == null || _changingProduct
+            ? _ProductList(
+                products: products.where((product) => !product.isOutOfStock).toList(),
+                onSelected: _chooseProduct,
+                onCancel: p == null ? null : () => setState(() => _changingProduct = false),
+              )
+            : ListView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
           children: [
             // 1. Product
             AppCard(
-              onTap: () => _pickProduct(products),
+              onTap: () => setState(() => _changingProduct = true),
               padding: EdgeInsets.fromLTRB(12.w, 10.h, 4.w, 10.h),
               child: Row(children: [
-                if (p != null) ProductThumb(product: p, size: 44) else _emptyThumb(),
+                ProductThumb(product: p, size: 44),
                 SizedBox(width: 12.w),
                 Expanded(
-                  child: p == null
-                      ? Text('পণ্য বাছুন', style: AppText.bodyStrong.copyWith(color: AppColors.primaryDark))
-                      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(p.name, style: AppText.bodyStrong),
-                          Text('${qtyWithUnit(p.availableQty, p)} আছে', style: AppText.caption),
-                        ]),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(p.name, style: AppText.bodyStrong),
+                    Text('${qtyWithUnit(p.availableQty, p)} আছে', style: AppText.caption),
+                  ]),
                 ),
                 TextButton(
-                  onPressed: () => _pickProduct(products),
+                  onPressed: () => setState(() => _changingProduct = true),
                   style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                  child: Text(p == null ? 'বাছুন' : 'বদলান'),
+                  child: const Text('বদলান'),
                 ),
               ]),
             ),
-            if (p != null) ...[
+            ...[
               if (p.variants.isNotEmpty) ...[
                 SizedBox(height: 16.h),
                 FieldLabel(p.variantLabel ?? 'ধরন', required: true),
@@ -190,6 +268,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
               SizedBox(height: 16.h),
               AppTextField(
                 hint: 'নোট যোগ করুন (ঐচ্ছিক)',
+                initialValue: state.note,
                 prefixIcon: Icons.edit_note_rounded,
                 onChanged: ctrl.setNote,
                 textInputAction: TextInputAction.done,
@@ -208,7 +287,7 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: p == null
+      bottomNavigationBar: p == null || _changingProduct || !pendingValue.hasValue || pending != null
           ? null
           : BottomActionBar(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -249,70 +328,75 @@ class _QuickSaleScreenState extends ConsumerState<QuickSaleScreen> {
     );
   }
 
-  Widget _emptyThumb() => Container(
-        width: 44.r,
-        height: 44.r,
-        decoration: BoxDecoration(color: AppColors.mint, borderRadius: BorderRadius.circular(12.r)),
-        child: const Icon(Icons.add_rounded, color: AppColors.primary),
-      );
 }
 
-class _ProductPickerSheet extends StatefulWidget {
-  const _ProductPickerSheet({required this.products});
+class _ProductList extends StatefulWidget {
+  const _ProductList({required this.products, required this.onSelected, this.onCancel});
   final List<Product> products;
+  final ValueChanged<Product> onSelected;
+  final VoidCallback? onCancel;
 
   @override
-  State<_ProductPickerSheet> createState() => _ProductPickerSheetState();
+  State<_ProductList> createState() => _ProductListState();
 }
 
-class _ProductPickerSheetState extends State<_ProductPickerSheet> {
-  String _q = '';
+class _ProductListState extends State<_ProductList> {
+  String _query = '';
 
   @override
   Widget build(BuildContext context) {
-    final list = widget.products.where((p) => p.name.contains(_q.trim())).toList();
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.75,
-        child: Column(children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 10.h),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('পণ্য বাছুন', style: AppText.section.copyWith(fontSize: 17.sp)),
-              SizedBox(height: 10.h),
-              AppSearchField(hint: 'পণ্যের নাম খুঁজুন', onChanged: (v) => setState(() => _q = v)),
-            ]),
-          ),
-          Expanded(
-            child: list.isEmpty
-                ? const EmptyView(icon: Icons.search_off_rounded, title: 'স্টকে থাকা কোনো পণ্য মেলেনি')
-                : ListView.separated(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => SizedBox(height: 8.h),
-                    itemBuilder: (_, i) {
-                      final p = list[i];
-                      return AppCard(
-                        onTap: () => Navigator.pop(context, p),
-                        padding: EdgeInsets.all(10.r),
-                        child: Row(children: [
-                          ProductThumb(product: p, size: 44),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(p.name, style: AppText.bodyStrong),
-                              Text('${priceWithUnit(p)} · ${qtyWithUnit(p.availableQty, p)} আছে',
-                                  style: AppText.caption),
-                            ]),
-                          ),
-                        ]),
-                      );
-                    },
-                  ),
-          ),
-        ]),
-      ),
+    final query = _query.trim().toLowerCase();
+    final products = widget.products.where((p) => p.name.toLowerCase().contains(query)).toList();
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
+          child: Row(children: [
+            Expanded(
+              child: AppSearchField(
+                hint: 'পণ্যের নাম খুঁজুন',
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            if (widget.onCancel != null)
+              TextButton(onPressed: widget.onCancel, child: const Text('বাতিল')),
+          ]),
+        ),
+        Expanded(
+          child: products.isEmpty
+              ? EmptyView(
+                  icon: Icons.search_off_rounded,
+                  title: widget.products.isEmpty
+                      ? 'বিক্রির জন্য স্টকে কোনো পণ্য নেই'
+                      : 'এই নামে কোনো পণ্য মেলেনি',
+                )
+              : ListView.separated(
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 24.h),
+                  itemCount: products.length,
+                  separatorBuilder: (_, __) => SizedBox(height: 8.h),
+                  itemBuilder: (_, index) {
+                    final product = products[index];
+                    return AppCard(
+                      onTap: () => widget.onSelected(product),
+                      padding: EdgeInsets.all(12.r),
+                      child: Row(children: [
+                        ProductThumb(product: product, size: 44),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(product.name, style: AppText.bodyStrong),
+                            Text('${priceWithUnit(product)} · ${qtyWithUnit(product.availableQty, product)} আছে',
+                                style: AppText.caption),
+                          ]),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                      ]),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

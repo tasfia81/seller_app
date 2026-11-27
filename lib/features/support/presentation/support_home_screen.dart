@@ -93,7 +93,8 @@ class SupportHomeScreen extends ConsumerWidget {
             Text('আমার কথোপকথন', style: AppText.section),
             SizedBox(height: 10.h),
             AsyncValueView<List<SupportThread>>(
-              value: threads,
+              keepDataOnReload: true,
+        value: threads,
               onRetry: () => ref.invalidate(supportThreadsProvider),
               data: (list) => list.isEmpty
                   ? AppCard(child: Text('এখনো কোনো প্রশ্ন করেননি। উপরের যেকোনো বিষয় বেছে লিখুন।', style: AppText.body))

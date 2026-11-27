@@ -22,24 +22,9 @@ const chip = (s: ApiHandoverStatus) => {
 
 export function CashView({ items, sellers, tab, selectedId }: { items: ApiHandover[]; sellers: ApiCashOverview["sellers"]; tab: ApiHandoverStatus; selectedId?: string }) {
   const router = useRouter();
-  const toast = useToast();
-  const [pending, start] = useTransition();
   const list = items.filter((h) => h.status === tab);
   const sel = list.find((h) => h.id === selectedId) ?? list[0];
-  const [received, setReceived] = useState(sel ? bnDigits(sel.amount) : "");
-  const [note, setNote] = useState("");
-  const [confirm, setConfirm] = useState<null | "verify" | "reject">(null);
-  const recv = parseMoney(received);
-  const invalid = !sel || recv === null || recv <= 0 || recv > sel.amount;
-  const diff = sel && recv !== null ? sel.amount - recv : 0;
   const open = (id: string) => router.push(`/cash?tab=${tab}&id=${id}`, { scroll: false });
-
-  const run = (kind: "verify" | "reject") =>
-    sel &&
-    start(async () => {
-      const r = kind === "verify" ? await verifyHandover(sel.id, recv ?? 0, note) : await rejectHandover(sel.id, note);
-      toast(r.ok ? (r.message ?? "সম্পন্ন হয়েছে।") : r.message, !r.ok);
-    });
 
   return (
     <>
@@ -100,47 +85,64 @@ export function CashView({ items, sellers, tab, selectedId }: { items: ApiHandov
             )}
           </section>
         </div>
-        {sel ? (
-          <div className="b">
-            <section className="drawer">
-              <div className="sh"><h2 className="h2">জমার বিস্তারিত</h2>{chip(sel.status)}</div>
-              <div className="sl"><Avatar name={sel.seller_name} /><div><b>{sel.seller_name}</b><span className="mu">{bnDateTime(sel.submitted_at)} জমা দিয়েছেন</span></div></div>
-              <KV label="জমার কথা বলেছেন">{money(sel.amount)}</KV>
-              <KV label="মাধ্যম">{HANDOVER_METHOD_LABELS[sel.method] ?? sel.method}</KV>
-              <KV label="রেফারেন্স">{sel.reference ?? "—"}</KV>
-              <KV label="সেলারের নোট">{sel.note ?? "—"}</KV>
-              {sel.status === "pending" ? (
-                <>
-                  <div className="f">
-                    <label htmlFor="rc">আসলে পেয়েছেন <i>*</i></label>
-                    <input id="rc" className={`in${invalid ? " e" : ""}`} value={received} onChange={(e) => setReceived(e.target.value)} inputMode="decimal" />
-                    {invalid ? <span className="err">০ থেকে {money(sel.amount)}-এর মধ্যে পরিমাণ দিন।</span> : null}
-                  </div>
-                  {!invalid && diff > 0 ? <Note kind="danger" icon="alert">{money(diff)} কম পাওয়া গেছে। যাচাই করলে {money(recv!)} গ্রহণ হবে আর {money(diff)} সেলারের বাকিতে থেকে যাবে।</Note> : null}
-                  <div className="f"><label htmlFor="nt">মন্তব্য</label><input id="nt" className="in" value={note} onChange={(e) => setNote(e.target.value)} placeholder="যেমন: বাকি ২০০ টাকা কাল দেবেন" /></div>
-                  <div className="actions">
-                    <button type="button" className="btn" disabled={invalid || pending} onClick={() => setConfirm("verify")}>{money(recv ?? 0)} গ্রহণ নিশ্চিত করুন</button>
-                    <button type="button" className="btn r" disabled={pending} onClick={() => setConfirm("reject")}>প্রত্যাখ্যান</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {sel.status === "verified" ? <KV label="গ্রহণ করা হয়েছে">{money(sel.received_amount ?? 0)}{sel.shortfall ? ` (${money(sel.shortfall)} কম)` : ""}</KV> : null}
-                  {[...sel.history].reverse().map((h, k) => (
-                    <div key={k} className="tl"><i style={{ background: h.action === "verified" ? "#168447" : "#D64545" }} /><div><div className="t1">{h.action === "verified" ? "যাচাই করেছেন" : "প্রত্যাখ্যান করেছেন"} {h.by}</div><div className="mu">{bnDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</div></div></div>
-                  ))}
-                </>
-              )}
-            </section>
-          </div>
-        ) : null}
+        {sel ? <CashHandoverDrawer key={sel.id} handover={sel} /> : null}
       </div>
-      {sel ? (
-        <>
-          <ConfirmDialog open={confirm === "verify"} title="ক্যাশ গ্রহণ নিশ্চিত করবেন?" message={`${sel.seller_name}-এর কাছ থেকে ${money(recv ?? 0)} হাতে পেয়েছেন।`} confirmLabel="নিশ্চিত করুন" onConfirm={() => run("verify")} onClose={() => setConfirm(null)} />
-          <ConfirmDialog open={confirm === "reject"} title="জমা প্রত্যাখ্যান করবেন?" message="সেলারের বাকি ক্যাশ যেমন আছে তেমন থাকবে।" confirmLabel="প্রত্যাখ্যান" danger onConfirm={() => run("reject")} onClose={() => setConfirm(null)} />
-        </>
-      ) : null}
+    </>
+  );
+}
+
+function CashHandoverDrawer({ handover: sel }: { handover: ApiHandover }) {
+  const toast = useToast();
+  const [pending, start] = useTransition();
+  const [received, setReceived] = useState(bnDigits(sel.amount));
+  const [note, setNote] = useState("");
+  const [confirm, setConfirm] = useState<null | "verify" | "reject">(null);
+  const recv = parseMoney(received);
+  const invalid = recv === null || recv <= 0 || recv > sel.amount;
+  const diff = recv !== null ? sel.amount - recv : 0;
+
+  const run = (kind: "verify" | "reject") =>
+    start(async () => {
+      const r = kind === "verify" ? await verifyHandover(sel.id, recv ?? 0, note) : await rejectHandover(sel.id, note);
+      toast(r.ok ? (r.message ?? "সম্পন্ন হয়েছে।") : r.message, !r.ok);
+    });
+
+  return (
+    <>
+      <div className="b">
+        <section className="drawer">
+          <div className="sh"><h2 className="h2">জমার বিস্তারিত</h2>{chip(sel.status)}</div>
+          <div className="sl"><Avatar name={sel.seller_name} /><div><b>{sel.seller_name}</b><span className="mu">{bnDateTime(sel.submitted_at)} জমা দিয়েছেন</span></div></div>
+          <KV label="জমার কথা বলেছেন">{money(sel.amount)}</KV>
+          <KV label="মাধ্যম">{HANDOVER_METHOD_LABELS[sel.method] ?? sel.method}</KV>
+          <KV label="রেফারেন্স">{sel.reference ?? "—"}</KV>
+          <KV label="সেলারের নোট">{sel.note ?? "—"}</KV>
+          {sel.status === "pending" ? (
+            <>
+              <div className="f">
+                <label htmlFor="rc">আসলে পেয়েছেন <i>*</i></label>
+                <input id="rc" className={`in${invalid ? " e" : ""}`} value={received} onChange={(e) => setReceived(e.target.value)} inputMode="decimal" />
+                {invalid ? <span className="err">০ থেকে {money(sel.amount)}-এর মধ্যে পরিমাণ দিন।</span> : null}
+              </div>
+              {!invalid && diff > 0 ? <Note kind="danger" icon="alert">{money(diff)} কম পাওয়া গেছে। যাচাই করলে {money(recv!)} গ্রহণ হবে আর {money(diff)} সেলারের বাকিতে থেকে যাবে।</Note> : null}
+              <div className="f"><label htmlFor="nt">মন্তব্য</label><input id="nt" className="in" value={note} onChange={(e) => setNote(e.target.value)} placeholder="যেমন: বাকি ২০০ টাকা কাল দেবেন" /></div>
+              <div className="actions">
+                <button type="button" className="btn" disabled={invalid || pending} onClick={() => setConfirm("verify")}>{money(recv ?? 0)} গ্রহণ নিশ্চিত করুন</button>
+                <button type="button" className="btn r" disabled={pending} onClick={() => setConfirm("reject")}>প্রত্যাখ্যান</button>
+              </div>
+            </>
+          ) : (
+            <>
+              {sel.status === "verified" ? <KV label="গ্রহণ করা হয়েছে">{money(sel.received_amount ?? 0)}{sel.shortfall ? ` (${money(sel.shortfall)} কম)` : ""}</KV> : null}
+              {[...sel.history].reverse().map((h, k) => (
+                <div key={k} className="tl"><i style={{ background: h.action === "verified" ? "#168447" : "#D64545" }} /><div><div className="t1">{h.action === "verified" ? "যাচাই করেছেন" : "প্রত্যাখ্যান করেছেন"} {h.by}</div><div className="mu">{bnDateTime(h.at)}{h.note ? ` · ${h.note}` : ""}</div></div></div>
+              ))}
+            </>
+          )}
+        </section>
+      </div>
+      <ConfirmDialog open={confirm === "verify"} title="ক্যাশ গ্রহণ নিশ্চিত করবেন?" message={`${sel.seller_name}-এর কাছ থেকে ${money(recv ?? 0)} হাতে পেয়েছেন।`} confirmLabel="নিশ্চিত করুন" onConfirm={() => run("verify")} onClose={() => setConfirm(null)} />
+      <ConfirmDialog open={confirm === "reject"} title="জমা প্রত্যাখ্যান করবেন?" message="সেলারের বাকি ক্যাশ যেমন আছে তেমন থাকবে।" confirmLabel="প্রত্যাখ্যান" danger onConfirm={() => run("reject")} onClose={() => setConfirm(null)} />
     </>
   );
 }

@@ -59,8 +59,9 @@ class SaleSuccessScreen extends StatelessWidget {
                   color: AppColors.background,
                   padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
                   child: Column(children: [
-                    KeyValueRow('বিক্রি নম্বর', '#${s.receiptNo ?? s.id}'),
-                    KeyValueRow('পণ্য', '${s.productName}${s.variant == null ? '' : ' (${s.variant})'}'),
+                    KeyValueRow('বিক্রি নম্বর', s.saleNumber),
+                    KeyValueRow('পণ্য', s.productTitle),
+                    if (s.variant != null) KeyValueRow('সাইজ', s.variant!),
                     KeyValueRow('পরিমাণ',
                         '${BnFormat.qty(s.quantity)} ${s.unit.label} × ${BnFormat.money(s.unitPrice)}'),
                     KeyValueRow('পেমেন্ট', s.payment.label),

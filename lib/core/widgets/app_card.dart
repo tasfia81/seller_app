@@ -181,11 +181,12 @@ class MetricTile extends StatelessWidget {
 
 /// Dark green card for the single most important amount on a screen.
 class HeroAmountCard extends StatelessWidget {
-  const HeroAmountCard({super.key, required this.label, required this.amount, this.caption});
+  const HeroAmountCard({super.key, required this.label, required this.amount, this.caption, this.dateLabel});
 
   final String label;
   final String amount;
   final String? caption;
+  final String? dateLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +197,20 @@ class HeroAmountCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppText.caption.copyWith(color: AppColors.onDarkMuted)),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12.w,
+              runSpacing: 4.h,
+              children: [
+                Text(label, style: AppText.caption.copyWith(color: AppColors.onDarkMuted)),
+                if (dateLabel case final date?)
+                  Text(date, style: AppText.small.copyWith(color: AppColors.onDarkMuted)),
+              ],
+            ),
+          ),
           SizedBox(height: 2.h),
           FittedBox(
             fit: BoxFit.scaleDown,

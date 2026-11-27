@@ -35,6 +35,9 @@ class PreviewSalesRepository implements SalesRepository {
   }
 
   @override
+  Future<Sale?> checkAttempt(String requestId) async => null;
+
+  @override
   Future<Sale> submitSale(SaleDraft draft) async {
     DemoData.ensureEnabled();
     final product = DemoData.products.firstWhere((p) => p.id == draft.productId);
@@ -86,6 +89,16 @@ class ApiSalesRepository implements SalesRepository {
   @override
   Future<Sale> getSale(String id) async =>
       parseSale(jsonMap(await api.get('/seller/sales/${Uri.encodeComponent(id)}')));
+
+  @override
+  Future<Sale?> checkAttempt(String requestId) async {
+    final response = await api.get('/seller/sales/attempts/${Uri.encodeComponent(requestId)}');
+    if (response is! Map || !response.containsKey('sale')) {
+      throw const ApiException('বিক্রির অবস্থা যাচাই করা যায়নি।');
+    }
+    final sale = response['sale'];
+    return sale == null ? null : parseSale(jsonMap(sale));
+  }
 
   @override
   Future<Sale> submitSale(SaleDraft draft) async => parseSale(jsonMap(await api.post('/seller/sales', {

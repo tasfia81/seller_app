@@ -1,8 +1,9 @@
 """Dashboards and reports. Revenue, profit, cash and seller earnings are kept separate."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
+from ..core.config import DHAKA
 from ..core.utils import day_of, in_range, money, period_range, today
 from ..storage import Tx
 from .common import (ASSIGNMENTS, CORRECTIONS, EARNINGS, EXPENSES, HANDOVERS, NOTIFICATIONS, PRODUCTS, RETURNS, SALES, SELLER_CASH_METHODS, SELLER_STOCK,
@@ -43,9 +44,11 @@ def admin_dashboard(tx: Tx, period: str) -> dict[str, Any]:
     sellers = tx.list(SELLERS)
     active_ids = {s["seller_id"] for s in sales}
     hourly = [0.0] * 24
-    for s in sales:
-        if day_of(s["created_at"]) == today():
-            hourly[int(s["created_at"][11:13])] += s["eff"]["total"]
+    hourly_counts = [0] * 24
+    for sale in sales:
+        hour = datetime.fromisoformat(sale["created_at"]).astimezone(DHAKA).hour
+        hourly[hour] += sale["eff"]["total"]
+        hourly_counts[hour] += 1
     perf = []
     for sl in sellers:
         mine = [s for s in sales if s["seller_id"] == sl["id"]]
@@ -73,7 +76,7 @@ def admin_dashboard(tx: Tx, period: str) -> dict[str, Any]:
             "seller_earnings": fin["seller_compensation"],
             "active_sellers": len(active_ids), "total_active_sellers": sum(1 for s in sellers if s["status"] == "active"),
         },
-        "hourly_sales": [{"hour": h, "total": money(v)} for h, v in enumerate(hourly) if 7 <= h <= 21],
+        "hourly_sales": [{"hour": h, "total": money(v), "count": hourly_counts[h]} for h, v in enumerate(hourly)],
         "seller_performance": sorted(perf, key=lambda r: r["sales"], reverse=True),
         "recent_sales": list_sales(tx, period=period, admin=True)["items"][:6],
         "inventory_alerts": {

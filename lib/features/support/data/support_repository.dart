@@ -1,4 +1,5 @@
 import '../../../core/api/api_client.dart';
+import '../../../core/api/support_updates.dart';
 import '../../../core/api/seller_payload.dart';
 import '../../../core/constants/app_config.dart';
 import '../../auth/data/seller_session.dart';
@@ -161,10 +162,21 @@ class ApiSupportRepository implements SupportRepository {
   }
 }
 
+final supportUpdatesProvider = StreamProvider.autoDispose<int>((ref) {
+  if (AppConfig.previewAuth) return const Stream.empty();
+  return supportUpdates(ref.watch(sellerSessionProvider).api);
+});
+
 final supportThreadsProvider = FutureProvider.autoDispose<List<SupportThread>>(
-  (ref) => ref.watch(supportRepositoryProvider).myThreads(),
+  (ref) {
+    ref.watch(supportUpdatesProvider);
+    return ref.watch(supportRepositoryProvider).myThreads();
+  },
 );
 
 final supportThreadProvider = FutureProvider.autoDispose.family<SupportThread, String>(
-  (ref, id) => ref.watch(supportRepositoryProvider).open(id),
+  (ref, id) {
+    ref.watch(supportUpdatesProvider);
+    return ref.watch(supportRepositoryProvider).open(id);
+  },
 );

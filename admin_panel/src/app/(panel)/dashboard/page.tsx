@@ -1,6 +1,8 @@
+import styles from "./Dashboard.module.css";
 import Link from "next/link";
 import { Suspense } from "react";
 import { DateFilter, parsePeriod, PERIODS, type Period } from "@/components/dashboard/DateFilter";
+import { HourlySalesChart } from "@/components/dashboard/HourlySalesChart";
 import { LoadError, Skeleton } from "@/components/shell/LoadState";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Avatar, Chip, EmptyState, Kpi } from "@/components/ui/bits";
@@ -22,14 +24,14 @@ const quickActions: { href: string; label: string; icon: IconName; bg: string; f
 export default function DashboardPage(props: PageProps<"/dashboard">) {
   return (
     <>
-      <header className="tb">
+      <header className={`tb ${styles.header}`}>
         <h1>ড্যাশবোর্ড</h1>
         <span className="grow" />
         <Link className="ib" href="/activity" aria-label="নোটিফিকেশন">
           <Icon name="bell" />
         </Link>
       </header>
-      <main className="ct">
+      <main className={`ct ${styles.content}`}>
         <nav className="qa" aria-label="দ্রুত কাজ">
           {quickActions.map((a) => (
             <Link key={a.href} href={a.href}>
@@ -72,7 +74,6 @@ function DashboardView({ d, period }: { d: ApiDashboard; period: Period }) {
     { href: "/settlements", label: "দিনের হিসাব যাচাই", icon: "cal", count: p.settlements, bg: "#ECEFED", fg: "#45524A" },
     { href: "/corrections", label: "বিক্রি সংশোধনের অনুরোধ", icon: "edit", count: p.corrections, bg: "#ECEFED", fg: "#45524A" },
   ];
-  const maxHour = Math.max(1, ...d.hourly_sales.map((h) => h.total));
   const a = d.inventory_alerts;
   const noAlerts = !a.low_central_stock.length && !a.low_seller_stock.length && !a.pending_transfers && !a.damaged_units;
 
@@ -101,26 +102,7 @@ function DashboardView({ d, period }: { d: ApiDashboard; period: Period }) {
 
       <div className="two">
         <div className="a">
-          <section className="cd">
-            <div className="sh">
-              <h2 className="h2">ঘণ্টা অনুযায়ী বিক্রি</h2>
-              <span className="mu">শুধু আজ</span>
-            </div>
-            {d.hourly_sales.some((h) => h.total > 0) ? (
-              <>
-                <div className="chart" role="img" aria-label="আজকের ঘণ্টাভিত্তিক বিক্রি">
-                  {d.hourly_sales.map((h) => (
-                    <i key={h.hour} className={h.total === maxHour ? "hi" : undefined} style={{ height: `${Math.max(2, (h.total / maxHour) * 100)}%` }} title={`${bnDigits(h.hour)}টা: ${money(h.total)}`} />
-                  ))}
-                </div>
-                <div className="chart-x">
-                  {d.hourly_sales.map((h) => <span key={h.hour}>{bnDigits(h.hour % 12 || 12)}</span>)}
-                </div>
-              </>
-            ) : (
-              <EmptyState icon="chart" title="আজ এখনো কোনো বিক্রি হয়নি" />
-            )}
-          </section>
+          <HourlySalesChart key={period} hours={d.hourly_sales} periodLabel={label} />
 
           <section>
             <div className="sh" style={{ marginBottom: 10 }}>

@@ -55,7 +55,7 @@ export function SellersTable({ items }: { items: ApiSellerRow[] }) {
         ) : (
           <table style={{ minWidth: 860 }}>
             <thead>
-              <tr><th>সেলার</th><th>অবস্থা</th><th>আয়ের ধরন</th><th>স্টকের নিয়ম</th><th className="n">আজকের বিক্রি</th><th className="n">বাকি ক্যাশ</th><th /></tr>
+              <tr><th>সেলার</th><th>অবস্থা</th><th>আয়ের ধরন</th><th>স্টকের নিয়ম</th><th className="n" scope="col">হাতে আছে</th><th className="n">আজকের বিক্রি</th><th className="n">বাকি ক্যাশ</th><th /></tr>
             </thead>
             <tbody>
               {list.map((s) => (
@@ -69,6 +69,7 @@ export function SellersTable({ items }: { items: ApiSellerRow[] }) {
                   <td><Chip tone={TONE[s.status]}>{s.status_label}</Chip></td>
                   <td>{bnDigits(s.compensation)}</td>
                   <td>{s.policy_label}</td>
+                  <td className="n"><b>{bnDigits(s.available)}</b></td>
                   <td className="n"><b>{money(s.today_sales)}</b></td>
                   <td className="n" style={s.cash_due ? { color: s.status === "suspended" ? "#A92F2F" : "#85560C", fontWeight: 600 } : undefined}>{money(s.cash_due)}</td>
                   <td className="n">

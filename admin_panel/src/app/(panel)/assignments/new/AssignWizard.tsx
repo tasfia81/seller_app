@@ -9,7 +9,7 @@ import type { ApiProduct, ApiSellerRow } from "@/lib/api/types";
 import { bnDigits, money, toAscii } from "@/lib/format";
 import { createAssignment } from "../actions";
 
-type Line = { productId: string; variant: string; qty: number };
+type Line = { productId: string; variant: string; quantityText: string };
 type Policy = "seller_default" | "daily_return" | "carry_forward";
 const POLICY_LABEL = { daily_return: "প্রতিদিন ফেরত", carry_forward: "পরের দিনে চলবে" } as const;
 
@@ -27,26 +27,45 @@ export function AssignWizard({ sellers, products, stock }: { sellers: ApiSellerR
   if (!sellers.length) return <Note kind="warn">কোনো সক্রিয় সেলার নেই। আগে <Link href="/applications">সেলার আবেদন</Link> অনুমোদন করুন।</Note>;
   const available = (pid: string, variant: string) => stock[`${pid}|${variant}`] ?? 0;
   const hasStock = (p: ApiProduct) => (p.variants.length ? p.variants.some((v) => available(p.id, v) > 0) : available(p.id, "") > 0);
-  if (!products.some(hasStock)) return <Note kind="warn">গুদামে কোনো স্টক নেই। আগে <Link href="/inventory">মূল স্টক</Link> পেজে স্টক গ্রহণ করুন।</Note>;
+  if (!products.some(hasStock)) {
+    return (
+      <div className="cd">
+        <Note kind="warn">
+          {products.length ? "পণ্য তৈরি হয়েছে। বরাদ্দ দেওয়ার আগে গুদামে ইউনিট যোগ করুন।" : "বরাদ্দ দেওয়ার আগে একটি পণ্য তৈরি করে গুদামে ইউনিট যোগ করুন।"}
+        </Note>
+        <Link className="btn o" href={products.length ? "/inventory#receive-stock" : "/products/new"}>
+          {products.length ? "স্টক গ্রহণ করুন" : "পণ্য যোগ করুন"}
+        </Link>
+      </div>
+    );
+  }
 
   const seller = sellers.find((s) => s.id === sellerId)!;
   const rows = lines.map((l) => {
     const p = products.find((x) => x.id === l.productId)!;
     const wh = available(p.id, l.variant);
-    return { ...l, p, wh, over: l.qty > wh, invalid: l.qty <= 0 };
+    const qty = Number(toAscii(l.quantityText));
+    const steps = qty / p.quantity_step;
+    const invalid = !Number.isFinite(qty) || qty <= 0 || Math.abs(steps - Math.round(steps)) > 1e-6;
+    return { ...l, p, wh, qty, over: qty > wh, invalid };
   });
   const hasError = rows.some((r) => r.over || r.invalid) || rows.length === 0;
   const total = rows.reduce((a, r) => a + r.qty * r.p.price, 0);
-  const units = rows.reduce((a, r) => a + r.qty, 0);
+  const amounts = new Map<string, number>();
+  for (const row of rows) amounts.set(row.p.unit_label, (amounts.get(row.p.unit_label) ?? 0) + row.qty);
+  const summary = [...amounts].map(([unit, qty]) => `${bnDigits(Number(qty.toFixed(4)))} ${unit}`).join(" · ");
   const effectivePolicy = policy === "seller_default" ? seller.policy : policy;
 
-  const setQty = (i: number, qty: number) => setLines(lines.map((l, j) => (j === i ? { ...l, qty: Math.max(0, qty) } : l)));
+  const setQty = (i: number, quantityText: string) => {
+    if (!/^\d*(\.\d*)?$/.test(toAscii(quantityText))) return;
+    setLines(lines.map((l, j) => (j === i ? { ...l, quantityText } : l)));
+  };
   const addLine = () => {
     const p = products.find((x) => x.id === adding);
     if (!p) return;
     const variant = p.variants.find((v) => available(p.id, v) > 0 && !lines.some((l) => l.productId === p.id && l.variant === v)) ?? (p.variants.length ? null : "");
     if (variant === null || lines.some((l) => l.productId === p.id && l.variant === variant)) return toast("এই পণ্যের সব ধরন আগেই যোগ হয়েছে বা স্টক নেই।", true);
-    setLines([...lines, { productId: p.id, variant, qty: 1 }]);
+    setLines([...lines, { productId: p.id, variant, quantityText: bnDigits(p.quantity_step) }]);
     setAdding("");
   };
 
@@ -97,15 +116,16 @@ export function AssignWizard({ sellers, products, stock }: { sellers: ApiSellerR
               </div>
               {r.p.variants.length ? (
                 <select className="in" aria-label="ধরন" style={{ width: 90 }} value={r.variant} onChange={(e) => setLines(lines.map((l, j) => (j === i ? { ...l, variant: e.target.value } : l)))}>
-                  {r.p.variants.map((v) => <option key={v} value={v}>{v} ({bnDigits(available(r.p.id, v))})</option>)}
+                  {r.p.variants.map((v) => <option key={v} value={v} disabled={v !== r.variant && (available(r.p.id, v) === 0 || lines.some((line) => line.productId === r.productId && line.variant === v))}>{v} ({bnDigits(available(r.p.id, v))})</option>)}
                 </select>
               ) : null}
               <div className={`qty${r.over ? " e" : ""}`}>
-                <button type="button" aria-label="কমান" onClick={() => setQty(i, r.qty - 1)}>−</button>
-                <input aria-label="পরিমাণ" value={bnDigits(r.qty)} onChange={(e) => setQty(i, Number(toAscii(e.target.value).replace(/[^\d.]/g, "")) || 0)} inputMode="numeric" />
-                <button type="button" aria-label="বাড়ান" onClick={() => setQty(i, r.qty + 1)}>+</button>
+                <button type="button" aria-label="কমান" onClick={() => setQty(i, bnDigits(Number(Math.max(0, r.qty - r.p.quantity_step).toFixed(4))))}>−</button>
+                <input aria-label="পরিমাণ" value={r.quantityText} onChange={(e) => setQty(i, e.target.value)} inputMode="decimal" />
+                <button type="button" aria-label="বাড়ান" onClick={() => setQty(i, bnDigits(Number((r.qty + r.p.quantity_step).toFixed(4))))}>+</button>
               </div>
               <span className="mu">{r.p.unit_label}</span>
+              {r.invalid ? <span className="err">{bnDigits(r.p.quantity_step)} {r.p.unit_label} করে দিন।</span> : null}
               <button type="button" className="ib" aria-label="সরান" style={{ width: 36, height: 36, color: "#A92F2F" }} onClick={() => setLines(lines.filter((_, j) => j !== i))}><Icon name="x" size={18} /></button>
             </div>
           ))}
@@ -145,13 +165,13 @@ export function AssignWizard({ sellers, products, stock }: { sellers: ApiSellerR
           <KV label="মোট বিক্রয়মূল্য" total>{money(total)}</KV>
           <Note icon="truck">নিশ্চিত করলে অবস্থা হবে <b>“হস্তান্তর বাকি”</b>। সেলার অ্যাপে বুঝে নেওয়ার পরই স্টক তার নামে যাবে।</Note>
           <button type="button" className="btn full" disabled={hasError || pending} onClick={() => setConfirm(true)}>{pending ? "তৈরি হচ্ছে…" : "যাচাই করে নিশ্চিত করুন"}</button>
-          {hasError && rows.length ? <span className="err">লাল চিহ্নিত পরিমাণ ঠিক করুন।</span> : null}
+          {hasError && rows.length ? <span className="err">পণ্যের পরিমাণ ও গুদামের স্টক মিলিয়ে দেখুন।</span> : null}
         </section>
       </div>
       <ConfirmDialog
         open={confirm}
         title="বরাদ্দ নিশ্চিত করবেন?"
-        message={`${seller.name}-কে ${bnDigits(units)}টি পণ্য (${money(total)})।`}
+        message={`${seller.name}-কে ${summary} (${money(total)})।`}
         confirmLabel="নিশ্চিত করুন"
         onConfirm={submit}
         onClose={() => setConfirm(false)}

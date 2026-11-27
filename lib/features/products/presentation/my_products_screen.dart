@@ -13,6 +13,8 @@ import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/widgets/commerce_widgets.dart';
+import '../../inventory/data/inventory_repository.dart';
+import '../../inventory/presentation/pending_stock.dart';
 import '../data/product_repository_impl.dart';
 
 enum _StockFilter { all, inStock, out }
@@ -45,19 +47,24 @@ class _MyProductsScreenState extends ConsumerState<MyProductsScreen> {
         value: value,
         onRetry: () => ref.invalidate(assignedProductsProvider),
         data: (all) {
-          if (all.isEmpty) {
-            return const EmptyView(
-              icon: Icons.inventory_2_outlined,
-              title: 'এখনো কোনো পণ্য দেওয়া হয়নি',
-              message: 'অ্যাডমিন পণ্য বরাদ্দ দিলে এখানে দেখতে পাবেন।',
-            );
-          }
           final categories = ['সব', ...{for (final p in all) p.category}];
           final list = _filter(all);
           final inStock = all.where((p) => !p.isOutOfStock).length;
           return RefreshIndicator(
-            onRefresh: () => ref.refresh(assignedProductsProvider.future),
-            child: CustomScrollView(slivers: [
+            onRefresh: () async {
+              await Future.wait([
+                ref.refresh(assignedProductsProvider.future),
+                ref.refresh(pendingAssignmentsProvider.future),
+              ]);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+                sliver: const SliverToBoxAdapter(child: PendingStock()),
+              ),
+              if (all.isNotEmpty)
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
                 sliver: SliverList.list(children: [
@@ -85,7 +92,13 @@ class _MyProductsScreenState extends ConsumerState<MyProductsScreen> {
                   ),
                 ]),
               ),
-              if (list.isEmpty)
+              if (all.isEmpty)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: EmptyView(icon: Icons.inventory_2_outlined, title: 'বিক্রির জন্য এখনো কোনো পণ্য নেই',
+                    message: 'বরাদ্দ করা স্টক গ্রহণ করলে এখানে দেখা যাবে।'),
+                )
+              else if (list.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: EmptyView(icon: Icons.search_off_rounded, title: 'কোনো পণ্য মেলেনি', message: 'অন্য নাম বা ফিল্টার দিয়ে খুঁজুন।'),

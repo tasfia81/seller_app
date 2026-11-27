@@ -1,3 +1,4 @@
+import { AdminLiveUpdates } from "@/components/shell/AdminLiveUpdates";
 import { Suspense } from "react";
 import { AdminBadge, AdminBadgeFallback } from "@/components/shell/AdminBadge";
 import { BottomNav, Sidebar } from "@/components/shell/Navigation";
@@ -18,6 +19,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         </Suspense>
       </aside>
       <div className="main">
+        <AdminLiveUpdates />
         {children}
         <div className="bnav">
           <Suspense fallback={<div className="bn" />}>

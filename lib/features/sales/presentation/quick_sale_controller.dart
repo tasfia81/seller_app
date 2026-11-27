@@ -2,11 +2,13 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api/api_client.dart';
 import '../../../core/errors/failure.dart';
 import '../../../core/utils/bn_format.dart';
 import '../../../shared/models/enums.dart';
 import '../../../shared/models/product.dart';
 import '../../../shared/models/sale.dart';
+import '../data/pending_sale_store.dart';
 import '../data/sales_repository_impl.dart';
 
 class QuickSaleState {
@@ -86,12 +88,8 @@ class QuickSaleState {
 }
 
 class QuickSaleController extends AutoDisposeNotifier<QuickSaleState> {
-  // One idempotency key per sale attempt; reused on retry so the server
-  // never records the same sale twice.
-  String _requestId = _newId();
-
   static String _newId() =>
-      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(0x7FFFFFFF).toRadixString(16)}';
+      '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(0x7FFFFFFF).toRadixString(16)}';
 
   @override
   QuickSaleState build() => const QuickSaleState();
@@ -105,7 +103,6 @@ class QuickSaleController extends AutoDisposeNotifier<QuickSaleState> {
       payment: p.paymentMethods.contains(state.payment) ? state.payment :
           p.paymentMethods.firstOrNull ?? PaymentMethod.cash,
     );
-    _requestId = _newId();
   }
 
   void setVariant(String v) {
@@ -117,32 +114,87 @@ class QuickSaleController extends AutoDisposeNotifier<QuickSaleState> {
   void setPayment(PaymentMethod m) => state = state.copyWith(payment: m);
   void setNote(String n) => state = state.copyWith(note: n);
 
-  /// Returns the server-confirmed sale, or null on failure (error in state).
-  Future<Sale?> submit() async {
+  Future<Sale?> submit(bool Function(Sale) onConfirmed) async {
     final s = state;
-    if (!s.canSubmit) return null;
-    state = s.copyWith(submitting: true, clearError: true);
+    final product = s.product;
+    if (!s.canSubmit || product == null) return null;
+    return _process(onConfirmed: onConfirmed, newAttempt: PendingSale(
+      SaleDraft(
+        productId: product.id,
+        variant: s.variant,
+        quantity: s.quantity,
+        unitPrice: s.unitPrice!,
+        payment: s.payment,
+        note: s.note.trim().isEmpty ? null : s.note.trim(),
+        clientRequestId: _newId(),
+      ),
+      product.name,
+      product.unit,
+    ));
+  }
+
+  Future<Sale?> recover({required bool resend, required bool Function(Sale) onConfirmed}) =>
+      _process(resend: resend, onConfirmed: onConfirmed);
+
+  Future<Sale?> _process({
+    PendingSale? newAttempt,
+    bool resend = false,
+    required bool Function(Sale) onConfirmed,
+  }) async {
+    if (state.submitting) return null;
+    final keepAlive = ref.keepAlive();
+    state = state.copyWith(submitting: true, clearError: true);
     try {
-      final sale = await ref.read(salesRepositoryProvider).submitSale(SaleDraft(
-            productId: s.product!.id,
-            variant: s.variant,
-            quantity: s.quantity,
-            unitPrice: s.unitPrice!,
-            payment: s.payment,
-            note: s.note.trim().isEmpty ? null : s.note.trim(),
-            clientRequestId: _requestId,
-          ));
-      _requestId = _newId();
-      state = state.copyWith(submitting: false);
+      final store = ref.read(pendingSaleStoreProvider);
+      final repository = ref.read(salesRepositoryProvider);
+      var pending = await store.read();
+      if (pending == null) {
+        if (newAttempt == null) return null;
+        await store.save(newAttempt);
+        pending = newAttempt;
+        ref.invalidate(pendingSaleProvider);
+      } else if (newAttempt != null) {
+        ref.invalidate(pendingSaleProvider);
+        return null;
+      } else {
+        final confirmed = await repository.checkAttempt(pending.draft.clientRequestId);
+        if (confirmed != null) {
+          if (onConfirmed(confirmed)) {
+            await store.clear();
+            ref.invalidate(pendingSaleProvider);
+          }
+          return confirmed;
+        }
+        if (!resend) return null;
+      }
+
+      final Sale sale;
+      try {
+        sale = await repository.submitSale(pending.draft);
+      } catch (error) {
+        if (error is InsufficientStockFailure ||
+            error is ApiException &&
+                const {400, 404, 409, 422}.contains(error.status) &&
+                !error.code.startsWith('http_')) {
+          await store.clear();
+          ref.invalidate(pendingSaleProvider);
+        }
+        rethrow;
+      }
+      if (onConfirmed(sale)) {
+        await store.clear();
+        ref.invalidate(pendingSaleProvider);
+      }
       return sale;
-    } on Failure catch (e) {
-      state = state.copyWith(submitting: false, error: e);
+    } catch (error) {
+      state = state.copyWith(error: error);
       return null;
-    } catch (_) {
-      state = state.copyWith(submitting: false, error: const UnknownFailure());
-      return null;
+    } finally {
+      state = state.copyWith(submitting: false);
+      keepAlive.close();
     }
   }
+
 }
 
 final quickSaleProvider =

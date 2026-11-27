@@ -20,6 +20,10 @@ def _sales_on(tx: Tx, seller_id: str, day: str) -> list[dict[str, Any]]:
 
 def list_sellers(tx: Tx, status: str | None, model: str | None, q: str | None) -> list[dict[str, Any]]:
     t = today().isoformat()
+    stock_by_seller: dict[str, float] = {}
+    for stock in tx.list(SELLER_STOCK):
+        sid = stock["seller_id"]
+        stock_by_seller[sid] = stock_by_seller.get(sid, 0) + stock["qty"]
     rows = []
     for s in tx.list(SELLERS):
         rule = current_rule(s)
@@ -32,7 +36,7 @@ def list_sellers(tx: Tx, status: str | None, model: str | None, q: str | None) -
         sales = _sales_on(tx, s["id"], t)
         rows.append({"id": s["id"], "name": s["name"], "mobile": s["mobile"], "status": s["status"], "status_label": STATUS_LABEL[s["status"]],
                      "compensation": short_label(rule), "model": rule["model"], "policy": s["policy"], "policy_label": POLICY_LABEL[s["policy"]],
-                     "today_sales": money(sum(x["total"] for x in sales)), "today_items": sum(x["qty"] for x in sales), "cash_due": cash_summary(tx, s["id"])["due"]})
+                     "available": stock_by_seller.get(s["id"], 0), "today_sales": money(sum(x["total"] for x in sales)), "today_items": sum(x["qty"] for x in sales), "cash_due": cash_summary(tx, s["id"])["due"]})
     return sorted(rows, key=lambda r: (r["status"] != "active", -r["today_sales"]))
 
 
